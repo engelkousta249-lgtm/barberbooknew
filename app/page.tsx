@@ -73,23 +73,8 @@ export default function Home() {
     "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400",
   ]
 
-  const featuredStatic = [
-    { name: "Sir Barbershop", loc: "Πέζα, Ελλάδα", rating: "5.0", reviews: 4, emoji: "✂️" },
-    { name: "Durden Barbershop", loc: "Μενεμένη, Ελλάδα", rating: "5.0", reviews: 23, emoji: "👔" },
-    { name: "ArisArtFade", loc: "Ίλιον, Αθήνα", rating: "4.9", reviews: 61, emoji: "🔥" },
-    { name: "ClassicCuts Αθήνα", loc: "Κολωνάκι, Αθήνα", rating: "4.8", reviews: 88, emoji: "💎" },
-    { name: "PrestigeBarbers", loc: "Γλυφάδα, Αθήνα", rating: "4.9", reviews: 37, emoji: "🏆" },
-    { name: "Sharp & Clean", loc: "Θεσσαλονίκη", rating: "4.8", reviews: 52, emoji: "⚡" },
-  ]
-
-  const newStatic = [
-    { name: "UrbanCut Studio", loc: "Χαλάνδρι, Αθήνα", rating: "4.5", reviews: 8, emoji: "🌟" },
-    { name: "FreshFades Θεσ/κη", loc: "Θεσσαλονίκη", rating: "4.3", reviews: 5, emoji: "✨" },
-    { name: "The Barber Room", loc: "Πειραιάς", rating: "4.6", reviews: 11, emoji: "🎯" },
-    { name: "Razor's Edge", loc: "Νέα Σμύρνη", rating: "4.4", reviews: 6, emoji: "🪒" },
-    { name: "GoldLine Barbers", loc: "Μαρούσι, Αθήνα", rating: "4.7", reviews: 3, emoji: "💫" },
-    { name: "Studio 9 Barbers", loc: "Βόλος", rating: "4.2", reviews: 4, emoji: "🔱" },
-  ]
+ const featuredStatic: any[] = []
+const newStatic: any[] = []
 
   const faqs = [
     { q: "Πόσο χρόνο χρειάζεται η εγκατάσταση;", a: "Τα περισσότερα καταστήματα είναι online σε 20 λεπτά. Χρειάζεται να προσθέσεις τις υπηρεσίες, τιμές και ωράριο — τίποτα άλλο." },

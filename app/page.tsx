@@ -13,6 +13,8 @@ export default function Home() {
   const [modal, setModal] = useState<""|"login"|"register">("")
   const [barbershops, setBarbershops] = useState<any[]>([])
   const [nearShow, setNearShow] = useState(false)
+  const [nearLoading, setNearLoading] = useState(false)
+  const [nearResults, setNearResults] = useState<any[]>([])
   const [cuts, setCuts] = useState(13)
   const [price, setPrice] = useState(13)
   const [barbers, setBarbers] = useState(1)
@@ -21,6 +23,37 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const revenue = Math.round(cuts * price * barbers * 26 * (noshow / 100) * 0.35)
+  const handleNearMe = () => {
+  if (!navigator.geolocation) { alert("Ο browser σου δεν υποστηρίζει geolocation!"); return }
+  setNearLoading(true)
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      const { latitude, longitude } = pos.coords
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`)
+        const data = await res.json()
+        const cityName = data.address?.city || data.address?.town || data.address?.village || ""
+        const nearby = barbershops.filter(b =>
+          b.city && cityName && (
+            b.city.toLowerCase().includes(cityName.toLowerCase()) ||
+            cityName.toLowerCase().includes(b.city.toLowerCase())
+          )
+        ).slice(0, 4)
+        setNearResults(nearby.length > 0 ? nearby : barbershops.slice(0, 4))
+        setNearShow(true)
+      } catch {
+        setNearResults(barbershops.slice(0, 4))
+        setNearShow(true)
+      }
+      setNearLoading(false)
+    },
+    () => {
+      setNearResults(barbershops.slice(0, 4))
+      setNearShow(true)
+      setNearLoading(false)
+    }
+  )
+}
 
   useEffect(() => {
     supabase.from("barbershops").select("*").then(({ data }) => {
@@ -443,26 +476,23 @@ const newStatic: any[] = []
               <p>Κλείσε ραντεβού με τους καλύτερους barbers κοντά σου — άμεσα, χωρίς τηλέφωνο, χωρίς αναμονή.</p>
               <div className="search-wrap">
                 <div className="search-box">
-                  <input placeholder="Αναζήτησε barber, πόλη ή περιοχή…"/>
-                  <button onClick={() => setNearShow(true)}>Εύρεση Barber</button>
-                </div>
-                {nearShow && (
-                  <div className="near-result show">
-                    <div style={{fontSize:"0.7rem",letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--light)",opacity:0.5,marginBottom:"0.7rem"}}>📍 Barbers Κοντά Σου</div>
-                    {[
-                      { name: "Durden Barbershop", stars: "★★★★★ 5.0 · Ανοιχτό τώρα", dist: "0.3 km" },
-                      { name: "Sir Barbershop", stars: "★★★★★ 5.0 · Ανοιχτό τώρα", dist: "0.8 km" },
-                      { name: "ArisArtFade", stars: "★★★★½ 4.9 · Κλείνει 20:00", dist: "1.2 km", yellow: true },
-                      { name: "ClassicCuts Αθήνα", stars: "★★★★★ 4.8 · Ανοιχτό τώρα", dist: "1.7 km" },
-                    ].map(r => (
-                      <div key={r.name} className="near-row">
-                        <div className="near-dot" style={r.yellow ? {background:"#f59e0b",boxShadow:"0 0 6px #f59e0b"} : {}}/>
-                        <div><div className="nr-name">{r.name}</div><div className="nr-stars">{r.stars}</div></div>
-                        <div className="nr-dist">{r.dist}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+  <input placeholder="Αναζήτησε barber, πόλη ή περιοχή…"/>
+  <button onClick={handleNearMe}>{nearLoading ? "⏳ Εντοπισμός..." : "Εύρεση Barber"}</button>
+</div>
+{nearShow && (
+  <div className="near-result show">
+    <div style={{fontSize:"0.7rem",letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--light)",opacity:0.5,marginBottom:"0.7rem"}}>📍 Barbers Κοντά Σου</div>
+    {nearResults.length === 0 ? (
+      <div style={{fontSize:"0.82rem",color:"var(--light)",opacity:0.5,padding:"0.5rem"}}>Δεν βρέθηκαν κουρεία κοντά σου.</div>
+    ) : nearResults.map(b => (
+      <div key={b.id} className="near-row" onClick={() => window.location.href = `/barbershops/${b.id}`}>
+        <div className="near-dot"/>
+        <div><div className="nr-name">{b.name}</div><div className="nr-stars">★★★★★ {b.rating} · {b.city}</div></div>
+        <div className="nr-dist">→</div>
+      </div>
+    ))}
+  </div>
+)}
               </div>
               <div className="hero-stats">
                 <div><div className="stat-num">50+</div><div className="stat-lbl">Κουρεία</div></div>
@@ -483,10 +513,13 @@ const newStatic: any[] = []
             {/* FEATURED */}
             <div className="scroll-section">
               <div className="scroll-header">
-                <h3>⭐ Featured Barbers</h3>
-                <span>Δες όλα →</span>
-              </div>
-              <div className="cards">
+  <h3>⭐ Featured Barbers</h3>
+  <div style={{display:"flex",gap:"8px"}}>
+    <button onClick={() => { const el = document.getElementById("featured-scroll"); if (el) el.scrollLeft -= 280 }} style={{width:32,height:32,borderRadius:"50%",border:"1px solid rgba(30,95,255,0.3)",background:"rgba(10,22,40,0.7)",color:"var(--glow)",fontSize:14,cursor:"pointer"}}>←</button>
+    <button onClick={() => { const el = document.getElementById("featured-scroll"); if (el) el.scrollLeft += 280 }} style={{width:32,height:32,borderRadius:"50%",border:"1px solid rgba(30,95,255,0.3)",background:"rgba(10,22,40,0.7)",color:"var(--glow)",fontSize:14,cursor:"pointer"}}>→</button>
+  </div>
+</div>
+<div className="cards" id="featured-scroll">
                 {featuredStatic.map((b, i) => (
                   <div key={b.name} className="card">
                     <div className="card-img" style={{background:`linear-gradient(135deg,#0d1f3a,#${['091830','162040','1a2f5a','111c35','1c2e55','142240'][i]})`}}>
@@ -522,11 +555,14 @@ const newStatic: any[] = []
 
             {/* NEW */}
             <div className="scroll-section">
-              <div className="scroll-header">
-                <h3>🆕 Νέα Μπαρμπέρικα</h3>
-                <span>Δες όλα →</span>
-              </div>
-              <div className="cards">
+             <div className="scroll-header">
+  <h3>🆕 Νέα Μπαρμπέρικα</h3>
+  <div style={{display:"flex",gap:"8px"}}>
+    <button onClick={() => { const el = document.getElementById("new-scroll"); if (el) el.scrollLeft -= 280 }} style={{width:32,height:32,borderRadius:"50%",border:"1px solid rgba(30,95,255,0.3)",background:"rgba(10,22,40,0.7)",color:"var(--glow)",fontSize:14,cursor:"pointer"}}>←</button>
+    <button onClick={() => { const el = document.getElementById("new-scroll"); if (el) el.scrollLeft += 280 }} style={{width:32,height:32,borderRadius:"50%",border:"1px solid rgba(30,95,255,0.3)",background:"rgba(10,22,40,0.7)",color:"var(--glow)",fontSize:14,cursor:"pointer"}}>→</button>
+  </div>
+</div>
+<div className="cards" id="new-scroll">
                 {newStatic.map((b, i) => (
                   <div key={b.name} className="card">
                     <div className="card-img" style={{background:`linear-gradient(135deg,#0c1a32,#${['142540','182c4a','131f38','172843','1a2e50','13223a'][i]})`}}>

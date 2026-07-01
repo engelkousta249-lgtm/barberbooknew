@@ -7,6 +7,100 @@ const supabase = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjZmtoZGppcmFnYmxzaXFldGVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2OTY0ODYsImV4cCI6MjA5NzI3MjQ4Nn0.EkmgRuYzrvF0A_pgT9vaOouMRKeQ2kasPZxpoIuCgeE"
 )
 
+function LoginForm({ onSubmit, onSwitch, onGoogle, loading, error }: any) {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  return (
+    <>
+      <h3 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"2rem",letterSpacing:"0.05em",marginBottom:"0.4rem"}}>Καλώς Ήρθες</h3>
+      <p style={{fontSize:"0.82rem",color:"var(--light)",opacity:0.55,marginBottom:"1.8rem"}}>Συνδέσου για να διαχειριστείς τις κρατήσεις σου</p>
+      {error && <div style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:"0.5rem",padding:"0.7rem 1rem",fontSize:"0.82rem",color:"#ef4444",marginBottom:"1rem"}}>{error}</div>}
+      <div style={{marginBottom:"1.1rem"}}>
+        <label style={{display:"block",fontSize:"0.72rem",letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--light)",opacity:0.5,marginBottom:"0.4rem"}}>Email</label>
+        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
+          style={{width:"100%",padding:"0.75rem 1rem",background:"rgba(10,22,40,0.8)",border:"1px solid rgba(30,95,255,0.2)",borderRadius:"0.7rem",color:"var(--white)",fontFamily:"Inter,sans-serif",fontSize:"0.88rem",outline:"none"}}/>
+      </div>
+      <div style={{marginBottom:"1.1rem"}}>
+        <label style={{display:"block",fontSize:"0.72rem",letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--light)",opacity:0.5,marginBottom:"0.4rem"}}>Κωδικός</label>
+        <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
+          style={{width:"100%",padding:"0.75rem 1rem",background:"rgba(10,22,40,0.8)",border:"1px solid rgba(30,95,255,0.2)",borderRadius:"0.7rem",color:"var(--white)",fontFamily:"Inter,sans-serif",fontSize:"0.88rem",outline:"none"}}/>
+      </div>
+      <button disabled={loading} onClick={() => onSubmit(email, password)}
+        style={{width:"100%",padding:"0.85rem",background:"linear-gradient(135deg,#1e5fff,#0a3ab8)",border:"none",color:"#fff",borderRadius:"0.8rem",fontFamily:"Inter,sans-serif",fontWeight:700,fontSize:"0.9rem",cursor:loading?"not-allowed":"pointer",opacity:loading?0.7:1}}>
+        {loading ? "⏳ Σύνδεση..." : "Σύνδεση"}
+      </button>
+      <div style={{display:"flex",alignItems:"center",gap:"1rem",margin:"1rem 0"}}>
+        <div style={{flex:1,height:1,background:"rgba(30,95,255,0.15)"}}/>
+        <span style={{fontSize:"0.7rem",color:"var(--light)",opacity:0.4}}>ή</span>
+        <div style={{flex:1,height:1,background:"rgba(30,95,255,0.15)"}}/>
+      </div>
+      <button onClick={onGoogle}
+        style={{width:"100%",padding:"0.85rem",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(168,200,255,0.2)",borderRadius:"0.8rem",color:"var(--white)",fontFamily:"Inter,sans-serif",fontWeight:600,fontSize:"0.88rem",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.6rem"}}>
+        <svg width="18" height="18" viewBox="0 0 48 48">
+          <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.7 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 20-9 20-20 0-1.3-.2-2.7-.4-4z"/>
+          <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.1 18.9 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+          <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5.1l-6.2-5.2C29.4 35.5 26.8 36 24 36c-5.2 0-9.7-2.9-11.9-7.2l-6.5 5C9.5 39.6 16.3 44 24 44z"/>
+          <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.6-2.6 4.8-4.9 6.3l6.2 5.2C40.5 36.2 44 30.6 44 24c0-1.3-.2-2.7-.4-4z"/>
+        </svg>
+        Συνέχεια με Google
+      </button>
+      <div style={{fontSize:"0.78rem",textAlign:"center",marginTop:"1.2rem",color:"var(--light)",opacity:0.5}}>
+        Δεν έχεις λογαριασμό; <a style={{color:"var(--glow)",cursor:"pointer",opacity:1}} onClick={onSwitch}>Εγγραφή →</a>
+      </div>
+    </>
+  )
+}
+
+function RegisterForm({ onSubmit, onSwitch, onGoogle, loading, error }: any) {
+  const [fullName, setFullName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  return (
+    <>
+      <h3 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"2rem",letterSpacing:"0.05em",marginBottom:"0.4rem"}}>Δημιουργία Λογαριασμού</h3>
+      <p style={{fontSize:"0.82rem",color:"var(--light)",opacity:0.55,marginBottom:"1.8rem"}}>Κλείσε το πρώτο σου ραντεβού σε δευτερόλεπτα</p>
+      {error && <div style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:"0.5rem",padding:"0.7rem 1rem",fontSize:"0.82rem",color:"#ef4444",marginBottom:"1rem"}}>{error}</div>}
+      <div style={{marginBottom:"1.1rem"}}>
+        <label style={{display:"block",fontSize:"0.72rem",letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--light)",opacity:0.5,marginBottom:"0.4rem"}}>Ονοματεπώνυμο</label>
+        <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Νίκος Παπαδόπουλος"
+          style={{width:"100%",padding:"0.75rem 1rem",background:"rgba(10,22,40,0.8)",border:"1px solid rgba(30,95,255,0.2)",borderRadius:"0.7rem",color:"var(--white)",fontFamily:"Inter,sans-serif",fontSize:"0.88rem",outline:"none"}}/>
+      </div>
+      <div style={{marginBottom:"1.1rem"}}>
+        <label style={{display:"block",fontSize:"0.72rem",letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--light)",opacity:0.5,marginBottom:"0.4rem"}}>Email</label>
+        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
+          style={{width:"100%",padding:"0.75rem 1rem",background:"rgba(10,22,40,0.8)",border:"1px solid rgba(30,95,255,0.2)",borderRadius:"0.7rem",color:"var(--white)",fontFamily:"Inter,sans-serif",fontSize:"0.88rem",outline:"none"}}/>
+      </div>
+      <div style={{marginBottom:"1.1rem"}}>
+        <label style={{display:"block",fontSize:"0.72rem",letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--light)",opacity:0.5,marginBottom:"0.4rem"}}>Κωδικός</label>
+        <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Τουλάχιστον 6 χαρακτήρες"
+          style={{width:"100%",padding:"0.75rem 1rem",background:"rgba(10,22,40,0.8)",border:"1px solid rgba(30,95,255,0.2)",borderRadius:"0.7rem",color:"var(--white)",fontFamily:"Inter,sans-serif",fontSize:"0.88rem",outline:"none"}}/>
+      </div>
+      <button disabled={loading} onClick={() => onSubmit(fullName, email, password)}
+        style={{width:"100%",padding:"0.85rem",background:"linear-gradient(135deg,#1e5fff,#0a3ab8)",border:"none",color:"#fff",borderRadius:"0.8rem",fontFamily:"Inter,sans-serif",fontWeight:700,fontSize:"0.9rem",cursor:loading?"not-allowed":"pointer",opacity:loading?0.7:1}}>
+        {loading ? "⏳ Δημιουργία..." : "Δημιουργία Λογαριασμού"}
+      </button>
+      <div style={{display:"flex",alignItems:"center",gap:"1rem",margin:"1rem 0"}}>
+        <div style={{flex:1,height:1,background:"rgba(30,95,255,0.15)"}}/>
+        <span style={{fontSize:"0.7rem",color:"var(--light)",opacity:0.4}}>ή</span>
+        <div style={{flex:1,height:1,background:"rgba(30,95,255,0.15)"}}/>
+      </div>
+      <button onClick={onGoogle}
+        style={{width:"100%",padding:"0.85rem",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(168,200,255,0.2)",borderRadius:"0.8rem",color:"var(--white)",fontFamily:"Inter,sans-serif",fontWeight:600,fontSize:"0.88rem",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.6rem"}}>
+        <svg width="18" height="18" viewBox="0 0 48 48">
+          <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.7 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 20-9 20-20 0-1.3-.2-2.7-.4-4z"/>
+          <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.1 18.9 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+          <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5.1l-6.2-5.2C29.4 35.5 26.8 36 24 36c-5.2 0-9.7-2.9-11.9-7.2l-6.5 5C9.5 39.6 16.3 44 24 44z"/>
+          <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.6-2.6 4.8-4.9 6.3l6.2 5.2C40.5 36.2 44 30.6 44 24c0-1.3-.2-2.7-.4-4z"/>
+        </svg>
+        Συνέχεια με Google
+      </button>
+      <div style={{fontSize:"0.78rem",textAlign:"center",marginTop:"1.2rem",color:"var(--light)",opacity:0.5}}>
+        Έχεις ήδη λογαριασμό; <a style={{color:"var(--glow)",cursor:"pointer",opacity:1}} onClick={onSwitch}>Σύνδεση →</a>
+      </div>
+    </>
+  )
+}
+
 export default function Home() {
   const [page, setPage] = useState<"home"|"business">("home")
   const [menuOpen, setMenuOpen] = useState(false)
@@ -16,6 +110,9 @@ export default function Home() {
   const [nearLoading, setNearLoading] = useState(false)
   const [nearResults, setNearResults] = useState<any[]>([])
   const [cuts, setCuts] = useState(13)
+  const [authLoading, setAuthLoading] = useState(false)
+  const [authError, setAuthError] = useState("")
+  const [user, setUser] = useState<any>(null)
   const [price, setPrice] = useState(13)
   const [barbers, setBarbers] = useState(1)
   const [noshow, setNoshow] = useState(60)
@@ -23,9 +120,42 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const revenue = Math.round(cuts * price * barbers * 26 * (noshow / 100) * 0.35)
+  const handleLogin = async (email: string, password: string) => {
+  setAuthLoading(true)
+  setAuthError("")
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) setAuthError(error.message)
+  else setModal("")
+  setAuthLoading(false)
+}
+
+const handleRegister = async (fullName: string, email: string, password: string) => {
+  setAuthLoading(true)
+  setAuthError("")
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: fullName } }
+  })
+  if (error) setAuthError(error.message)
+  else { setModal(""); alert("✅ Επιβεβαίωσε το email σου!") }
+  setAuthLoading(false)
+}
+
+const handleLogout = async () => {
+  await supabase.auth.signOut()
+  setUser(null)
+}
+
+const handleGoogleLogin = async () => {
+  await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.origin }
+  })
+}
   const handleNearMe = () => {
   if (!navigator.geolocation) { alert("Ο browser σου δεν υποστηρίζει geolocation!"); return }
-  setNearLoading(true)
+  setNearLoading(true)  
   navigator.geolocation.getCurrentPosition(
     async pos => {
       const { latitude, longitude } = pos.coords
@@ -55,11 +185,18 @@ export default function Home() {
   )
 }
 
-  useEffect(() => {
-    supabase.from("barbershops").select("*").then(({ data }) => {
-      if (data) setBarbershops(data)
-    })
-  }, [])
+ useEffect(() => {
+  supabase.from("barbershops").select("*").then(({ data }) => {
+    if (data) setBarbershops(data)
+  })
+  supabase.auth.getUser().then(({ data }) => {
+    setUser(data.user)
+  })
+  const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    setUser(session?.user ?? null)
+  })
+  return () => listener.subscription.unsubscribe()
+}, [])  
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -439,12 +576,38 @@ const newStatic: any[] = []
         <ul className="drawer-links">
           <li><a onClick={() => { setPage("business"); setMenuOpen(false) }}>💼 Για Επιχειρήσεις</a></li>
           <div className="drawer-divider"/>
-          <li><a onClick={() => { setModal("login"); setMenuOpen(false) }}>🔑 Σύνδεση</a></li>
-          <li><a onClick={() => { setModal("register"); setMenuOpen(false) }}>✨ Εγγραφή</a></li>
+          {user ? (
+            <li><a onClick={() => { window.location.href="/dashboard"; setMenuOpen(false) }}>📊 Dashboard</a></li>
+          ) : (
+            <>
+              <li><a onClick={() => { setModal("login"); setMenuOpen(false) }}>🔑 Σύνδεση</a></li>
+              <li><a onClick={() => { setModal("register"); setMenuOpen(false) }}>✨ Εγγραφή</a></li>
+            </>
+          )}
         </ul>
         <div className="drawer-btns">
-          <button className="btn-ghost" onClick={() => { setModal("login"); setMenuOpen(false) }}>Σύνδεση</button>
-          <button className="btn-primary" onClick={() => { setModal("register"); setMenuOpen(false) }}>Εγγραφή</button>
+          {user ? (
+            <>
+              <span style={{fontSize:"0.82rem",color:"var(--light)",opacity:0.6,textAlign:"center"}}>
+                👤 {user.user_metadata?.full_name || user.email}
+              </span>
+              <button className="btn-ghost" onClick={() => { handleLogout(); setMenuOpen(false) }}>
+                Αποσύνδεση
+              </button>
+              <button className="btn-primary" onClick={() => { window.location.href="/dashboard"; setMenuOpen(false) }}>
+                Dashboard
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn-ghost" onClick={() => { setModal("login"); setMenuOpen(false) }}>
+                Σύνδεση
+              </button>
+              <button className="btn-primary" onClick={() => { setModal("register"); setMenuOpen(false) }}>
+                Εγγραφή
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -454,13 +617,25 @@ const newStatic: any[] = []
         <ul className="nav-links">
           <li><a onClick={() => setPage("business")}>Για Επιχειρήσεις</a></li>
         </ul>
-        <div className="nav-right">
-          <button className="btn-ghost" onClick={() => setModal("login")}>Σύνδεση</button>
-          <button className="btn-primary" onClick={() => setModal("register")}>Εγγραφή</button>
-          <button className={`hamburger ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(!menuOpen)}>
-            <span/><span/><span/>
-          </button>
-        </div>
+       <div className="nav-right">
+  {user ? (
+    <>
+      <span style={{color:"var(--light)",fontSize:"0.8rem",opacity:0.7}}>
+        👤 {user.user_metadata?.full_name || user.email}
+      </span>
+      <button className="btn-ghost" onClick={handleLogout}>Αποσύνδεση</button>
+      <button className="btn-primary" onClick={() => window.location.href="/dashboard"}>Dashboard</button>
+    </>
+  ) : (
+    <>
+      <button className="btn-ghost" onClick={() => setModal("login")}>Σύνδεση</button>
+      <button className="btn-primary" onClick={() => setModal("register")}>Εγγραφή</button>
+    </>
+  )}
+  <button className={`hamburger ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(!menuOpen)}>
+    <span/><span/><span/>
+  </button>
+</div>
       </nav>
 
       {/* ═══ HOME PAGE ═══ */}
@@ -825,28 +1000,25 @@ const newStatic: any[] = []
 
       {/* MODALS */}
       {modal && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setModal("") }}>
+        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) { setModal(""); setAuthError("") } }}>
           <div className="modal-box">
-            <button className="modal-close" onClick={() => setModal("")}>×</button>
+            <button className="modal-close" onClick={() => { setModal(""); setAuthError("") }}>×</button>
             {modal === "login" ? (
-              <>
-                <h3>Καλώς Ήρθες</h3>
-                <p className="modal-sub">Συνδέσου για να διαχειριστείς τις κρατήσεις σου</p>
-                <div className="form-field"><label>Email</label><input type="email" placeholder="you@example.com"/></div>
-                <div className="form-field"><label>Κωδικός</label><input type="password" placeholder="••••••••"/></div>
-                <button className="form-submit">Σύνδεση</button>
-                <div className="modal-switch">Δεν έχεις λογαριασμό; <a onClick={() => setModal("register")}>Εγγραφή →</a></div>
-              </>
+              <LoginForm
+                onSubmit={handleLogin}
+                onSwitch={() => { setModal("register"); setAuthError("") }}
+                onGoogle={handleGoogleLogin}
+                loading={authLoading}
+                error={authError}
+              />
             ) : (
-              <>
-                <h3>Δημιουργία Λογαριασμού</h3>
-                <p className="modal-sub">Κλείσε το πρώτο σου ραντεβού σε δευτερόλεπτα</p>
-                <div className="form-field"><label>Ονοματεπώνυμο</label><input type="text" placeholder="Νίκος Παπαδόπουλος"/></div>
-                <div className="form-field"><label>Email</label><input type="email" placeholder="you@example.com"/></div>
-                <div className="form-field"><label>Κωδικός</label><input type="password" placeholder="Δημιούργησε κωδικό"/></div>
-                <button className="form-submit">Δημιουργία Λογαριασμού</button>
-                <div className="modal-switch">Έχεις ήδη λογαριασμό; <a onClick={() => setModal("login")}>Σύνδεση →</a></div>
-              </>
+              <RegisterForm
+                onSubmit={handleRegister}
+                onSwitch={() => { setModal("login"); setAuthError("") }}
+                onGoogle={handleGoogleLogin}
+                loading={authLoading}
+                error={authError}
+              />
             )}
           </div>
         </div>

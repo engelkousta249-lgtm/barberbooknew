@@ -831,7 +831,7 @@ const newStatic: any[] = []
             </h1>
             <p>Διαφήμισε το μπαρμπέρικό σου, οργάνωσε τα ραντεβού σου και δες τα έσοδά σου να αυξάνονται.</p>
             <div className="biz-cta-row">
-              <button className="btn-big primary" onClick={() => setModal("register")}>🚀 Ξεκίνα Δωρεάν</button>
+             <button className="btn-big primary" onClick={() => window.location.href="/onboarding"}>🚀 Ξεκίνα Δωρεάν</button>
               <button className="btn-big ghost">Δες τα χαρακτηριστικά →</button>
             </div>
           </section>
@@ -934,7 +934,7 @@ const newStatic: any[] = []
                   <ul className="price-features">
                     {p.features.map(f => <li key={f}>{f}</li>)}
                   </ul>
-                  <button className={`price-btn ${p.btn}`} onClick={() => setModal("register")}>{p.cta}</button>
+                  <button type="button" className={`price-btn ${p.btn}`} onClick={() => { window.location.href = "/onboarding" }}>{p.cta}</button>
                 </div>
               ))}
             </div>
@@ -980,7 +980,7 @@ const newStatic: any[] = []
             <h2 style={{fontFamily:"'Bebas Neue',sans-serif"}}>Έτοιμος να Γεμίσεις<br/>το Ημερολόγιό σου;</h2>
             <p>Γίνε μέλος στα 400+ ελληνικά μπαρμπέρικα που μεγαλώνουν με το BarberBook.</p>
             <div className="biz-cta-row">
-              <button className="btn-big primary" onClick={() => setModal("register")}>🚀 Ξεκίνα Δωρεάν Σήμερα</button>
+              <button className="btn-big primary" onClick={() => window.location.href="/onboarding"}>🚀 Ξεκίνα Δωρεάν</button>
             </div>
           </section>
 

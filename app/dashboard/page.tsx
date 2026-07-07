@@ -63,8 +63,10 @@ export default function Dashboard() {
     setTimeout(() => setToast(""), 2500)
   }
 
-  useEffect(() => {
-    async function init() {
+ console.log("Dashboard component loaded!")
+
+useEffect(() => {
+  async function init() {
     
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { window.location.href = "/"; return }

@@ -186,9 +186,16 @@ const handleGoogleLogin = async () => {
 }
 
  useEffect(() => {
-  supabase.from("barbershops").select("*").then(({ data }) => {
+  supabase.from("barbershops").select("*")
+  .order("created_at", { ascending: false })
+  .then(({ data }) => {
     if (data) setBarbershops(data)
-  })
+if (data) {
+  setBarbershops(data)
+  console.log("Κουρεία:", data)
+}
+    })
+
   supabase.auth.getUser().then(({ data }) => {
     setUser(data.user)
   })

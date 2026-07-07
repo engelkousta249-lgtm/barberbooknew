@@ -88,10 +88,8 @@ if (profile?.barbershop_id) {
           .order("date", { ascending: true })
         setAppointments(appts || [])
       } else {
-        const { data: appts } = await supabase
-          .from("appointments").select("*")
-          .order("date", { ascending: false }).limit(50)
-        setAppointments(appts || [])
+        // Δεν έχει κουρείο — μην δείχνεις τίποτα
+        setAppointments([])
       }
       setLoading(false)
     }

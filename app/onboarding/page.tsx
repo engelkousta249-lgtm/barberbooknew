@@ -1,8 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+
+// Load Google Places API
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 // ============================================================
 // Supabase client (inline — move to env vars when you're ready)
@@ -90,7 +97,7 @@ export default function OnboardingPage() {
 
   function canNext() {
     if (step === 1) return email.trim() && password.trim().length >= 6;
-    if (step === 2) return shopName.trim() && category && phone.trim() && address.trim();
+    if (step === 2) return shopName.trim() && phone.trim() && address.trim();
     if (step === 3) return services.length > 0;
     return true;
   }
@@ -257,6 +264,39 @@ export default function OnboardingPage() {
 
   const pct = step > TOTAL_STEPS ? 100 : Math.round(((step - 1) / TOTAL_STEPS) * 100);
 
+  const addressInputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize Google Places Autocomplete
+  useEffect(() => {
+    const loadGooglePlaces = () => {
+      if (!window.google || !addressInputRef.current) return;
+
+      const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, {
+        componentRestrictions: { country: 'gr' }, // Restrict to Greece
+        types: ['geocode'],
+      });
+
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (place.formatted_address) {
+          setAddress(place.formatted_address);
+        }
+      });
+    };
+
+    // Load Google Maps script if not already loaded
+    if (!window.google) {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDxWBaFVQMy5VBKw-4V32WfyAQ_e6mUqFo&libraries=places&language=el`;
+      script.async = true;
+      script.defer = true;
+      script.onload = loadGooglePlaces;
+      document.head.appendChild(script);
+    } else {
+      loadGooglePlaces();
+    }
+  }, []);
+
   const inputCls =
     'w-full bg-[#101c33] border border-white/10 rounded-xl px-3.5 py-3 text-sm text-[#eaeef6] focus:outline-none focus:border-[#3b7bff]';
   const timeInputCls =
@@ -344,26 +384,10 @@ export default function OnboardingPage() {
 
             <div className="mb-4">
               <label className="block text-xs font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Όνομα καταστήματος</label>
-              <input value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="π.χ. Κουρείο Νίκος" className={inputCls} />
+              <input value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="π.χ. barberhood" className={inputCls} />
             </div>
 
-            <div className="mb-4">
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Κατηγορία</label>
-              <div className="flex flex-wrap gap-2">
-                {CATEGORIES.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setCategory(c)}
-                    className={`px-4 py-2 rounded-full text-sm font-bold border transition ${
-                      category === c ? 'border-[#3b7bff] bg-[#3b7bff]/15 text-[#cfe0ff]' : 'border-white/10 bg-[#0b1424] text-[#8a97ac]'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
+
 
             <div className="mb-4">
               <label className="block text-xs font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Τηλέφωνο</label>
@@ -372,20 +396,16 @@ export default function OnboardingPage() {
 
             <div className="mb-4">
               <label className="block text-xs font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Διεύθυνση</label>
-              <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Οδός, Αριθμός, Πόλη" className={inputCls} />
+              <input 
+                ref={addressInputRef}
+                value={address} 
+                onChange={(e) => setAddress(e.target.value)} 
+                placeholder="π.χ. Αντωνίου Μηλιαέα 2, 71306 Ηράκλειο" 
+                className={inputCls} 
+              />
             </div>
 
-            <div className="flex items-center justify-between bg-[#0b1424] border border-white/10 rounded-xl px-4 py-3.5">
-              <div>
-                <div className="text-sm font-bold">👥 Πόσοι barbers δουλεύετε εδώ;</div>
-                <div className="text-xs text-[#8a97ac] mt-0.5">Θα φτιάξουμε προφίλ για τον καθένα</div>
-              </div>
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={() => setTeamSize((n) => Math.max(1, n - 1))} className={stepperBtnCls}>−</button>
-                <span className="text-lg font-extrabold w-5 text-center">{teamSize}</span>
-                <button type="button" onClick={() => setTeamSize((n) => Math.min(20, n + 1))} className={stepperBtnCls}>+</button>
-              </div>
-            </div>
+
           </div>
         )}
 
@@ -465,7 +485,7 @@ export default function OnboardingPage() {
             <label className="block border-2 border-dashed border-white/10 rounded-2xl p-8 text-center cursor-pointer hover:border-[#3b7bff] hover:bg-[#3b7bff]/10 mb-4">
               <div className="text-2xl mb-2">⬆️</div>
               <div className="text-sm font-bold">Πάτησε για μεταφόρτωση</div>
-              <div className="text-xs text-[#8a97ac] mt-1">JPG, PNG έως 10 φωτογραφίες</div>
+              <div className="text-xs text-[#8a97ac] mt-1"> PNG έως 6 φωτογραφίες</div>
               <input type="file" accept="image/*" multiple onChange={onPhotosSelect} className="hidden" />
             </label>
 

@@ -65,20 +65,24 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function init() {
+    
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { window.location.href = "/"; return }
       setUser(user)
 
       const { data: profile } = await supabase
-  .from("profiles").select("*").eq("id", user.id).single()
+        .from("profiles").select("*").eq("id", user.id).single()
 
-// Μόνο owners μπορούν να μπουν στο dashboard
-if (profile?.role !== "owner") {
-  window.location.href = "/"
-  return
-}
+      // Μόνο owners μπορούν να μπουν στο dashboard
+      if (profile?.role !== "owner") {
+        window.location.href = "/"
+        return
+      }
 
-if (profile?.barbershop_id) {
+      console.log("Profile:", profile)
+      console.log("Barbershop ID:", profile?.barbershop_id)
+
+      if (profile?.barbershop_id) {
         const { data: shop } = await supabase
           .from("barbershops").select("*").eq("id", profile.barbershop_id).single()
         setBarbershop(shop)

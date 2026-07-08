@@ -39,9 +39,8 @@ export default function AddressAutocomplete({
   const [loading, setLoading] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<AddressData | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const suggestionsRef = useRef<HTMLDivElement>(null);
-  const debounceTimer = useRef<NodeJS.Timeout>();
-
+const suggestionsRef = useRef<HTMLDivElement>(null);
+const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   // Click outside handler
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

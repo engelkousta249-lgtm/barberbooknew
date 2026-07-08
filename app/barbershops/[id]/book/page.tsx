@@ -145,6 +145,27 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
       status: "pending",
     })
     if (error) { showToast("Κάτι πήγε στραβά!"); setSubmitting(false); return }
+    
+    // Send appointment confirmation email to customer
+    await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "new_appointment",
+        to: email,
+        data: {
+          shopName: shop.name,
+          shopEmail: shop.email,
+          customerName: name,
+          customerEmail: email,
+          customerPhone: phone,
+          service: svc?.name,
+          date: fmtDate(day.date),
+          time: time,
+        }
+      })
+    })
+    
     setDone(true)
     setSubmitting(false)
   }

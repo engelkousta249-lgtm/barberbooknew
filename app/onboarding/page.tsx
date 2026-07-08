@@ -252,6 +252,21 @@ if (!user) throw new Error('Δεν ήταν δυνατή η δημιουργία
         if (photoErr) throw photoErr;
       }
 
+      // Send welcome email to owner
+      await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "welcome_owner",
+          to: email,
+          data: {
+            ownerName: shopName,
+            shopName: shopName,
+            city: city,
+          }
+        })
+      })
+
       setFinalLink(`barberbook.gr/${slug}`);
       setStep(TOTAL_STEPS + 1); // success screen
     } catch (err: any) {
@@ -540,6 +555,7 @@ if (!user) throw new Error('Δεν ήταν δυνατή η δημιουργία
           </div>
         )}
       </div>
+  
 
       {/* ---------------- bottom bar ---------------- */}
       {step <= TOTAL_STEPS && (

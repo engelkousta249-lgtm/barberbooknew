@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AddressAutocomplete, { AddressData } from '@/components/AddressAutocomplete';
@@ -56,6 +56,7 @@ export default function OnboardingPage() {
   // step 1 — account
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
 
   // step 2 — business
   const [shopName, setShopName] = useState('');
@@ -64,7 +65,12 @@ export default function OnboardingPage() {
   const [streetNumber, setStreetNumber] = useState('');
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
+  const [address, setAddress] = useState('');
   const [teamSize, setTeamSize] = useState(1);
+  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [bio, setBio] = useState('');
+  const [instagram, setInstagram] = useState('');
+  const [facebook, setFacebook] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState('');
 
@@ -96,7 +102,22 @@ export default function OnboardingPage() {
     setStreetNumber(addressData.streetNumber);
     setCity(addressData.city);
     setPostalCode(addressData.postalCode);
+    setAddress(`${addressData.street} ${addressData.streetNumber}`.trim());
   };
+
+  function back() {
+    setError('');
+    setStep((prev) => Math.max(1, prev - 1));
+  }
+
+  async function next() {
+    setError('');
+    if (step === TOTAL_STEPS) {
+      await handleFinish();
+      return;
+    }
+    setStep((prev) => Math.min(TOTAL_STEPS, prev + 1));
+  }
 
   function canNext() {
     if (step === 1) return email.trim() && password.trim().length >= 6;
@@ -162,133 +183,90 @@ export default function OnboardingPage() {
   async function handleFinish() {
     setLoading(true);
     setError('');
+
     try {
-      // 1. Create the auth account
-      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-  email,
-  password,
-});
-if (signUpErr) throw signUpErr;
+      let userId = '';
+      const { data: { user: existingUser } } = await supabase.auth.getUser();
 
-// 👇 Αυτός είναι ο έλεγχος που λείπει
-if (signUpData.user && signUpData.user.identities?.length === 0) {
-  throw new Error('Αυτό το email είναι ήδη καταχωρημένο. Δοκίμασε να συνδεθείς ή χρησιμοποίησε άλλο email.');
-}
-
-const user = signUpData.user;
-if (!user) throw new Error('Δεν ήταν δυνατή η δημιουργία λογαριασμού.');
-      // 2. Promote this user's profile to 'barber'
-      const { error: profileErr } = await supabase
-        .from('profiles')
-        .update({ role: 'barber', full_name: shopName })
-        .eq('id', user.id);
-      if (profileErr) throw profileErr;
-
-      // 3. Upload logo (if provided)
-      let logoUrl: string | null = null;
-      if (logoFile) {
-        logoUrl = await uploadToBucket(logoFile, `${user.id}/logo-${Date.now()}`);
+      if (existingUser) {
+        userId = existingUser.id;
+      } else {
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: fullName } },
+        });
+        if (authError) {
+          setError(authError.message);
+          setLoading(false);
+          return;
+        }
+        if (!authData.user?.id) {
+          setError('Σφάλμα εγγραφής!');
+          setLoading(false);
+          return;
+        }
+        userId = authData.user.id;
       }
 
-      // 4. Create the barbershop row
-      const slug = slugify(shopName);
-      const fullAddress = `${street} ${streetNumber}, ${postalCode} ${city}`.trim();
-      const { data: shop, error: shopErr } = await supabase
+      const slug = slugify(shopName || `${fullName}-${city}`);
+      const logoUrl = logoFile ? await uploadToBucket(logoFile, `logos/${slug}-${logoFile.name}`) : '';
+      const coverUrl = photoFiles[0]
+        ? await uploadToBucket(photoFiles[0], `covers/${slug}-${photoFiles[0].name}`)
+        : '';
+
+      const { data: shopData, error: shopError } = await supabase
         .from('barbershops')
         .insert({
-          owner_id: user.id,
           name: shopName,
-          slug,
-          phone,
-          address: fullAddress,
-          postal_code: postalCode,
           city,
-          street,
-          street_number: streetNumber,
+          address,
+          phone,
+          email: email || existingUser?.email,
+          bio,
+          num_barbers: teamSize,
+          category,
           logo_url: logoUrl,
-          team_size: teamSize,
+          cover_url: coverUrl,
+          instagram,
+          facebook,
+          description: '',
+          rating: 5.0,
         })
         .select()
         .single();
-      if (shopErr) throw shopErr;
 
-      // 5. Insert services
-      if (services.length) {
-        const { error: svcErr } = await supabase.from('services').insert(
-          services.map((s) => ({
-            shop_id: shop.id,
-            name: s.name,
-            price: s.price,
-            duration_minutes: 30,
-          }))
-        );
-        if (svcErr) throw svcErr;
+      if (shopError) {
+        setError('Σφάλμα δημιουργίας κουρείου: ' + shopError.message);
+        setLoading(false);
+        return;
       }
 
-      // 6. Insert working hours
-      const { error: hoursErr } = await supabase.from('working_hours').insert(
-        hours.map((h, i) => ({
-          shop_id: shop.id,
-          day_of_week: i,
-          is_active: h.active,
-          open_time: h.active ? h.open : null,
-          close_time: h.active ? h.close : null,
-        }))
-      );
-      if (hoursErr) throw hoursErr;
+      await supabase.from('profiles').upsert({
+        id: userId,
+        full_name: fullName,
+        role: 'owner',
+        barbershop_id: shopData.id,
+      });
 
-      // 7. Upload portfolio photos
-      if (photoFiles.length) {
-        const urls = await Promise.all(
-          photoFiles.map((f, i) => uploadToBucket(f, `${user.id}/photo-${Date.now()}-${i}`))
-        );
-        const { error: photoErr } = await supabase.from('portfolio_photos').insert(
-          urls.map((url, i) => ({
-            shop_id: shop.id,
-            url,
-            is_cover: i === 0,
-          }))
-        );
-        if (photoErr) throw photoErr;
-      }
-
-      // Send welcome email to owner
-      await fetch("/api/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: "welcome_owner",
+          type: 'welcome_owner',
           to: email,
-          data: {
-            ownerName: shopName,
-            shopName: shopName,
-            city: city,
-          }
-        })
-      })
+          data: { ownerName: fullName, shopName, city },
+        }),
+      });
 
-      setFinalLink(`barberbook.gr/${slug}`);
-      setStep(TOTAL_STEPS + 1); // success screen
-    } catch (err: any) {
-      setError(err.message || 'Κάτι πήγε στραβά. Δοκίμασε ξανά.');
-    } finally {
-      setLoading(false);
+      setFinalLink(`barberbook.app/${slug}`);
+      setStep(TOTAL_STEPS + 1);
+    } catch (e: any) {
+      setError('Κάτι πήγε στραβά: ' + (e?.message || 'Άγνωστο σφάλμα'));
     }
-  }
 
-  function next() {
-    if (!canNext()) return;
-    if (step === TOTAL_STEPS) {
-      handleFinish();
-    } else {
-      setStep((s) => s + 1);
-    }
+    setLoading(false);
   }
-  function back() {
-    setError('');
-    setStep((s) => Math.max(1, s - 1));
-  }
-
   const pct = step > TOTAL_STEPS ? 100 : Math.round(((step - 1) / TOTAL_STEPS) * 100);
 
   const inputCls =

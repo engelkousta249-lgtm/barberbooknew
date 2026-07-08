@@ -169,6 +169,15 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
     setDone(true)
     setSubmitting(false)
   }
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setName(user.user_metadata?.full_name || "")
+        setEmail(user.email || "")
+        setStep(2)
+      }
+    })
+  }, [])
 
   const canNext =
     (step === 1 && barberId !== null) ||

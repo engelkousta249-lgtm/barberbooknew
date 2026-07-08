@@ -1,15 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-
-// Load Google Places API
-declare global {
-  interface Window {
-    google: any;
-  }
-}
+import AddressAutocomplete, { AddressData } from '@/components/AddressAutocomplete';
 
 // ============================================================
 // Supabase client (inline — move to env vars when you're ready)
@@ -65,9 +59,11 @@ export default function OnboardingPage() {
 
   // step 2 — business
   const [shopName, setShopName] = useState('');
-  const [category, setCategory] = useState('');
   const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
+  const [street, setStreet] = useState('');
+  const [streetNumber, setStreetNumber] = useState('');
+  const [city, setCity] = useState('');
+  const [postalCode, setPostalCode] = useState('');
   const [teamSize, setTeamSize] = useState(1);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState('');
@@ -95,9 +91,16 @@ export default function OnboardingPage() {
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
 
+  const handleAddressChange = (addressData: AddressData) => {
+    setStreet(addressData.street);
+    setStreetNumber(addressData.streetNumber);
+    setCity(addressData.city);
+    setPostalCode(addressData.postalCode);
+  };
+
   function canNext() {
     if (step === 1) return email.trim() && password.trim().length >= 6;
-    if (step === 2) return shopName.trim() && phone.trim() && address.trim();
+    if (step === 2) return shopName.trim() && phone.trim() && street.trim() && city.trim();
     if (step === 3) return services.length > 0;
     return true;
   }
@@ -162,13 +165,18 @@ export default function OnboardingPage() {
     try {
       // 1. Create the auth account
       const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-      if (signUpErr) throw signUpErr;
-      const user = signUpData.user;
-      if (!user) throw new Error('Δεν ήταν δυνατή η δημιουργία λογαριασμού.');
+  email,
+  password,
+});
+if (signUpErr) throw signUpErr;
 
+// 👇 Αυτός είναι ο έλεγχος που λείπει
+if (signUpData.user && signUpData.user.identities?.length === 0) {
+  throw new Error('Αυτό το email είναι ήδη καταχωρημένο. Δοκίμασε να συνδεθείς ή χρησιμοποίησε άλλο email.');
+}
+
+const user = signUpData.user;
+if (!user) throw new Error('Δεν ήταν δυνατή η δημιουργία λογαριασμού.');
       // 2. Promote this user's profile to 'barber'
       const { error: profileErr } = await supabase
         .from('profiles')
@@ -184,15 +192,19 @@ export default function OnboardingPage() {
 
       // 4. Create the barbershop row
       const slug = slugify(shopName);
+      const fullAddress = `${street} ${streetNumber}, ${postalCode} ${city}`.trim();
       const { data: shop, error: shopErr } = await supabase
         .from('barbershops')
         .insert({
           owner_id: user.id,
           name: shopName,
           slug,
-          category,
           phone,
-          address,
+          address: fullAddress,
+          postal_code: postalCode,
+          city,
+          street,
+          street_number: streetNumber,
           logo_url: logoUrl,
           team_size: teamSize,
         })
@@ -263,39 +275,6 @@ export default function OnboardingPage() {
   }
 
   const pct = step > TOTAL_STEPS ? 100 : Math.round(((step - 1) / TOTAL_STEPS) * 100);
-
-  const addressInputRef = useRef<HTMLInputElement>(null);
-
-  // Initialize Google Places Autocomplete
-  useEffect(() => {
-    const loadGooglePlaces = () => {
-      if (!window.google || !addressInputRef.current) return;
-
-      const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, {
-        componentRestrictions: { country: 'gr' }, // Restrict to Greece
-        types: ['geocode'],
-      });
-
-      autocomplete.addListener('place_changed', () => {
-        const place = autocomplete.getPlace();
-        if (place.formatted_address) {
-          setAddress(place.formatted_address);
-        }
-      });
-    };
-
-    // Load Google Maps script if not already loaded
-    if (!window.google) {
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDxWBaFVQMy5VBKw-4V32WfyAQ_e6mUqFo&libraries=places&language=el`;
-      script.async = true;
-      script.defer = true;
-      script.onload = loadGooglePlaces;
-      document.head.appendChild(script);
-    } else {
-      loadGooglePlaces();
-    }
-  }, []);
 
   const inputCls =
     'w-full bg-[#101c33] border border-white/10 rounded-xl px-3.5 py-3 text-sm text-[#eaeef6] focus:outline-none focus:border-[#3b7bff]';
@@ -396,13 +375,7 @@ export default function OnboardingPage() {
 
             <div className="mb-4">
               <label className="block text-xs font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Διεύθυνση</label>
-              <input 
-                ref={addressInputRef}
-                value={address} 
-                onChange={(e) => setAddress(e.target.value)} 
-                placeholder="π.χ. Αντωνίου Μηλιαέα 2, 71306 Ηράκλειο" 
-                className={inputCls} 
-              />
+              <AddressAutocomplete onAddressChange={handleAddressChange} />
             </div>
 
 
@@ -512,7 +485,7 @@ export default function OnboardingPage() {
             <div className="bg-[#0b1424] border border-white/10 rounded-2xl p-4 mb-3">
               <div className="text-[10px] font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Κατάστημα</div>
               <div className="text-sm font-bold">{shopName || '—'}</div>
-              <div className="text-xs text-[#8a97ac] mt-0.5">{category || 'χωρίς κατηγορία'} · {address || 'χωρίς διεύθυνση'}</div>
+              <div className="text-xs text-[#8a97ac] mt-0.5">{street} {streetNumber}, {postalCode} {city}</div>
             </div>
             <div className="bg-[#0b1424] border border-white/10 rounded-2xl p-4 mb-3">
               <div className="text-[10px] font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Ομάδα</div>

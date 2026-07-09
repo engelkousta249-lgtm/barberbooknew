@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     if (type === "welcome_owner") {
       await resend.emails.send({
         from: "BarberBook <onboarding@resend.dev>",
-        to,
+to: "engelkousta249@gmail.com", // προσωρινά για τεστ
         subject: "Καλώς ήρθες στο BarberBook! 💈",
         html: `
           <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#0a0f1e;color:#f1f5f9;border-radius:16px;overflow:hidden;">

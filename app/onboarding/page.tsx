@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, ChangeEvent } from 'react';
+import { useState, useEffect, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AddressAutocomplete, { AddressData } from '@/components/AddressAutocomplete';
@@ -48,6 +48,14 @@ type Hour = { active: boolean; open: string; close: string };
 export default function OnboardingPage() {
   const router = useRouter();
 
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      console.log("User:", user)
+      if (user) {
+        setStep(2)
+      }
+    })
+  }, [])
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

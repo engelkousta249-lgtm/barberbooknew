@@ -8,52 +8,46 @@ const supabase = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjZmtoZGppcmFnYmxzaXFldGVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2OTY0ODYsImV4cCI6MjA5NzI3MjQ4Nn0.EkmgRuYzrvF0A_pgT9vaOouMRKeQ2kasPZxpoIuCgeE"
 )
 
-const barbers = [
-  { id: "any", name: "Οποιονδήποτε", role: "", rating: null },
-  { id: 1, name: "Άγγελος Δ.", role: "Barber", rating: 4.9, initials: "ΑΔ" },
-  { id: 2, name: "Ζαχαρίας Λ.", role: "Barber", rating: 4.7, initials: "ΖΛ" },
+const DEFAULT_SERVICES: any[] = []
+
+const DEFAULT_HOURS = [
+  { short:"Δευ", full:"Δευτέρα", active:true, open:"09:00", close:"19:00" },
+  { short:"Τρί", full:"Τρίτη", active:true, open:"09:00", close:"19:00" },
+  { short:"Τετ", full:"Τετάρτη", active:true, open:"09:00", close:"19:00" },
+  { short:"Πέμ", full:"Πέμπτη", active:true, open:"09:00", close:"21:00" },
+  { short:"Παρ", full:"Παρασκευή", active:true, open:"09:00", close:"21:00" },
+  { short:"Σάβ", full:"Σάββατο", active:true, open:"10:00", close:"16:00" },
+  { short:"Κυρ", full:"Κυριακή", active:false, open:"", close:"" },
 ]
 
-const services = [
-  { id: 1, name: "Παιδικό Κούρεμα", sub: "Για ηλικίες μέχρι το τέλος δημοτικού", cat: "Κούρεμα", duration: 30, price: 12 },
-  { id: 2, name: "Ανδρικό Κούρεμα", sub: "", cat: "Κούρεμα", duration: 30, price: 15 },
-  { id: 3, name: "Κούρεμα Μακριά Μαλλιά", sub: "Με ψαλίδι", cat: "Κούρεμα", duration: 30, price: 18 },
-  { id: 4, name: "Κούρεμα + Γένια", sub: "", cat: "Περιποίηση", duration: 45, price: 22 },
-  { id: 5, name: "Ξύρισμα + Styling", sub: "", cat: "Περιποίηση", duration: 40, price: 18 },
+const DEFAULT_PHOTOS = [
+  "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=300",
+  "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=300",
+  "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=300",
+  "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=300",
+  "https://images.unsplash.com/photo-1512864084360-7c0c4d0a0c3b?w=300",
+  "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=300",
 ]
 
-const hours = [
-  { short: "Δευ", active: true, open: "09:00", close: "19:00" },
-  { short: "Τρί", active: true, open: "09:00", close: "19:00" },
-  { short: "Τετ", active: true, open: "09:00", close: "19:00" },
-  { short: "Πέμ", active: true, open: "09:00", close: "21:00" },
-  { short: "Παρ", active: true, open: "09:00", close: "21:00" },
-  { short: "Σάβ", active: true, open: "10:00", close: "16:00" },
-  { short: "Κυρ", active: false, open: "", close: "" },
-]
-
-const dowShort = ["ΔΕΥ", "ΤΡΙ", "ΤΕΤ", "ΠΕΜ", "ΠΑΡ", "ΣΑΒ", "ΚΥΡ"]
-const heroImgs = [
+const HERO_IMGS = [
   "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=700",
   "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=700",
   "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=700",
 ]
-const portfolio = [
-  "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=300",
-  "https://images.unsplash.com/photo-1512864084360-7c0c4d0a0c3b?w=300",
-  "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=300",
-  "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=300",
-  "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=300",
-  "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=300",
+
+const BARBERS = [
+  { id: "any", name: "Οποιονδήποτε", role: "", rating: null },
 ]
+
+const DOW_SHORT = ["ΔΕΥ","ΤΡΙ","ΤΕΤ","ΠΕΜ","ΠΑΡ","ΣΑΒ","ΚΥΡ"]
 
 function slotsInRange(open: string, close: string) {
   const [oh, om] = open.split(":").map(Number)
-  const [ch, cm] = close.split(":").map(Number)
-  let cur = oh * 60 + om, end = ch * 60 + cm
+  const [ch] = close.split(":").map(Number)
+  let cur = oh * 60 + om, end = ch * 60
   const out: string[] = []
   while (cur < end) {
-    out.push(String(Math.floor(cur / 60)).padStart(2, "0") + ":" + String(cur % 60).padStart(2, "0"))
+    out.push(String(Math.floor(cur/60)).padStart(2,"0")+":"+String(cur%60).padStart(2,"0"))
     cur += 30
   }
   return out
@@ -72,7 +66,7 @@ function nextDays(n: number) {
 }
 
 function fmtDate(d: Date) {
-  return d.toLocaleDateString("el-GR", { day: "2-digit", month: "2-digit" })
+  return d.toLocaleDateString("el-GR", { day:"2-digit", month:"2-digit" })
 }
 
 function fmtDateISO(d: Date) {
@@ -83,15 +77,18 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
   const { id } = use(params)
   const [shop, setShop] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [services, setServices] = useState<any[]>([])
+  const [hours, setHours] = useState<any[]>([])
+  const [photos, setPhotos] = useState<string[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
-  const [lightbox, setLightbox] = useState<string | null>(null)
+  const [lightbox, setLightbox] = useState<string|null>(null)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [step, setStep] = useState(1)
   const [barberId, setBarberId] = useState<any>(null)
-  const [serviceId, setServiceId] = useState<number | null>(null)
+  const [serviceId, setServiceId] = useState<number|null>(null)
   const [svcFilter, setSvcFilter] = useState("Όλες")
-  const [dayIndex, setDayIndex] = useState<number | null>(null)
-  const [time, setTime] = useState<string | null>(null)
+  const [dayIndex, setDayIndex] = useState<number|null>(null)
+  const [time, setTime] = useState<string|null>(null)
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
@@ -103,14 +100,56 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
 
   const days = nextDays(7)
 
+  // Load shop + services + hours + photos
   useEffect(() => {
-    supabase.from("barbershops").select("*").eq("id", id).single()
-      .then(({ data }) => { if (data) setShop(data); setLoading(false) })
+    async function load() {
+      const { data: shopData } = await supabase
+        .from("barbershops").select("*").eq("id", id).single()
+      if (shopData) setShop(shopData)
+
+      const { data: svcData, error: svcError } = await supabase
+  .from("services").select("*").eq("shop_id", id)
+console.log("Services:", svcData, "Error:", svcError)
+if (svcData && svcData.length > 0) {
+        setServices(svcData.map((s: any, i: number) => ({
+          id: i + 1, name: s.name, duration: s.duration_minutes,
+          price: s.price, cat: "Κούρεμα", sub: ""
+        })))
+      } else {
+        setServices(DEFAULT_SERVICES)
+      }
+
+      const { data: hoursData } = await supabase
+        .from("working_hours").select("*").eq("shop_id", id).order("day_of_week")
+      const dayNames = ["Δευτέρα","Τρίτη","Τετάρτη","Πέμπτη","Παρασκευή","Σάββατο","Κυριακή"]
+      if (hoursData && hoursData.length > 0) {
+        setHours(hoursData.map((h: any) => ({
+          short: dayNames[h.day_of_week].slice(0,3),
+          full: dayNames[h.day_of_week],
+          active: h.is_active,
+          open: h.open_time || "09:00",
+          close: h.close_time || "19:00",
+        })))
+      } else {
+        setHours(DEFAULT_HOURS)
+      }
+
+      const { data: photosData } = await supabase
+        .from("portfolio_photos").select("*").eq("shop_id", id)
+      if (photosData && photosData.length > 0) {
+        setPhotos(photosData.map((p: any) => p.url))
+      } else {
+        setPhotos(DEFAULT_PHOTOS)
+      }
+
+      setLoading(false)
+    }
+    load()
   }, [id])
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setHeroIdx(i => (i + 1) % heroImgs.length)
+      setHeroIdx(i => (i + 1) % HERO_IMGS.length)
     }, 3200)
     return () => clearInterval(interval)
   }, [])
@@ -119,9 +158,7 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
     if (dayIndex === null) return
     const date = fmtDateISO(days[dayIndex].date)
     supabase.from("appointments").select("time")
-      .eq("barbershop_id", id)
-      .eq("date", date)
-      .neq("status", "cancelled")
+      .eq("barbershop_id", id).eq("date", date).neq("status", "cancelled")
       .then(({ data }) => setTakenSlots(data?.map((a: any) => a.time) || []))
   }, [dayIndex, id])
 
@@ -145,6 +182,27 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
       status: "pending",
     })
     if (error) { showToast("Κάτι πήγε στραβά!"); setSubmitting(false); return }
+
+    // Send emails
+    await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "new_appointment",
+        to: email,
+        data: {
+          shopName: shop.name,
+          shopEmail: shop.email,
+          customerName: name,
+          customerEmail: email,
+          customerPhone: phone,
+          service: svc?.name,
+          date: fmtDate(day.date),
+          time: time,
+        }
+      })
+    })
+
     setDone(true)
     setSubmitting(false)
   }
@@ -158,18 +216,19 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
 
   const svc = services.find(s => s.id === serviceId)
   const day = dayIndex !== null ? days[dayIndex] : null
-  const barber = barbers.find(b => b.id === barberId)
+  const barber = BARBERS.find(b => b.id === barberId)
   const cats = ["Όλες", ...Array.from(new Set(services.map(s => s.cat)))]
   const filteredSvcs = services.filter(s => svcFilter === "Όλες" || s.cat === svcFilter)
+  const portfolio = photos
 
   if (loading) return (
-    <div style={{ background: "#070c16", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Inter,sans-serif", color: "#8a97ac" }}>
+    <div style={{background:"#070c16",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter,sans-serif",color:"#8a97ac"}}>
       ⏳ Φορτώνει...
     </div>
   )
 
   if (!shop) return (
-    <div style={{ background: "#070c16", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Inter,sans-serif", color: "#8a97ac" }}>
+    <div style={{background:"#070c16",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter,sans-serif",color:"#8a97ac"}}>
       ❌ Το κουρείο δεν βρέθηκε
     </div>
   )
@@ -189,7 +248,6 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
         @keyframes pulseRing{0%{box-shadow:0 0 0 0 rgba(59,123,255,.4);}100%{box-shadow:0 0 0 10px rgba(59,123,255,0);}}
         @keyframes pinDrop{0%{transform:translate(-50%,-260%);opacity:0;}70%{transform:translate(-50%,-90%);}100%{transform:translate(-50%,-100%);opacity:1;}}
         @keyframes kenBurns{0%{transform:scale(1);}100%{transform:scale(1.1);}}
-
         .wrap{max-width:680px;margin:0 auto;padding-bottom:110px;}
         .hero{position:relative;height:230px;overflow:hidden;}
         .hero-slide{position:absolute;inset:0;background-size:cover;background-position:center;transition:opacity .6s;opacity:0;}
@@ -300,10 +358,11 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
         .lightbox-close{position:absolute;top:22px;right:20px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;cursor:pointer;}
         .toast-bar{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--navy-700);border:1px solid var(--blue);color:var(--text);padding:10px 18px;border-radius:10px;font-size:12.5px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;z-index:50;white-space:nowrap;}
         .toast-bar.show{opacity:1;transform:translateX(-50%) translateY(0);}
+        .back-link{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;cursor:pointer;margin-bottom:16px;background:none;border:none;}
+        .back-link:hover{color:var(--text);}
         @media(max-width:420px){.slot-grid{grid-template-columns:repeat(3,1fr);}.barber-grid{grid-template-columns:repeat(2,1fr);}}
       `}</style>
 
-      {/* LIGHTBOX */}
       {lightbox && (
         <div className="lightbox-overlay" onClick={() => setLightbox(null)}>
           <button className="lightbox-close" onClick={() => setLightbox(null)}>✕</button>
@@ -311,25 +370,22 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
         </div>
       )}
 
-      {/* HERO */}
       <div className="hero">
-        {heroImgs.map((img, i) => (
-          <div key={i} className={`hero-slide ${heroIdx === i ? "active" : ""}`}
-            style={{ backgroundImage: `url(${img})` }}/>
+        {HERO_IMGS.map((img, i) => (
+          <div key={i} className={`hero-slide ${heroIdx===i?"active":""}`}
+            style={{backgroundImage:`url(${img})`}}/>
         ))}
         <div className="hero-fade"/>
         <button className="back-btn" onClick={() => window.history.back()}>←</button>
         <div className="gallery-chip">📷 {portfolio.length} φωτογραφίες</div>
         <div className="hero-dots">
-          {heroImgs.map((_, i) => (
-            <div key={i} className={`hero-dot ${heroIdx === i ? "active" : ""}`}
-              onClick={() => setHeroIdx(i)}/>
+          {HERO_IMGS.map((_, i) => (
+            <div key={i} className={`hero-dot ${heroIdx===i?"active":""}`} onClick={() => setHeroIdx(i)}/>
           ))}
         </div>
       </div>
 
       <div className="wrap">
-        {/* HEADER CARD */}
         <div className="header-card">
           <div className="shop-name-row">
             {shop.name}
@@ -345,7 +401,6 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
           </div>
         </div>
 
-        {/* PORTFOLIO */}
         {!wizardOpen && (
           <>
             <div className="section-title">💈 Πορτφόλιο</div>
@@ -357,7 +412,6 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
               ))}
             </div>
 
-            {/* MAP */}
             <div className="section-title">📍 Τοποθεσία</div>
             <div className="map-card">
               <div className="map-visual">
@@ -372,18 +426,17 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
                   <div className="map-sub">{shop.city}</div>
                 </div>
                 <a className="map-btn"
-                  href={`https://maps.google.com/?q=${encodeURIComponent(shop.address + " " + shop.city)}`}
+                  href={`https://maps.google.com/?q=${encodeURIComponent(shop.address+" "+shop.city)}`}
                   target="_blank" rel="noopener">
                   Οδηγίες
                 </a>
               </div>
             </div>
 
-            {/* CTA */}
             <div className="cta-hero">
               <button className="btn-start" onClick={() => {
                 setWizardOpen(true)
-                setTimeout(() => wizardRef.current?.scrollIntoView({ behavior: "smooth" }), 100)
+                setTimeout(() => wizardRef.current?.scrollIntoView({behavior:"smooth"}), 100)
               }}>
                 Κλείσε Ραντεβού →
               </button>
@@ -391,16 +444,15 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
           </>
         )}
 
-        {/* WIZARD */}
         {wizardOpen && !done && (
           <div className="wizard" ref={wizardRef}>
             <div className="stepper">
-              {[1,2,3,4,5].map((s, i) => (
+              {[1,2,3,4,5].map((s,i) => (
                 <div key={s} style={{display:"flex",alignItems:"center",flex:i<4?1:"unset"}}>
                   <div className={`step-dot ${step===s?"active":""} ${step>s?"done":""}`}>
-                    {step > s ? "✓" : s}
+                    {step>s?"✓":s}
                   </div>
-                  {i < 4 && <div className={`step-line ${step>s?"done":""}`}/>}
+                  {i<4 && <div className={`step-line ${step>s?"done":""}`}/>}
                 </div>
               ))}
             </div>
@@ -411,17 +463,15 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
             </div>
 
             <div className="panel">
-              {/* STEP 1 — BARBER */}
-              {step === 1 && (
+              {step===1 && (
                 <>
                   <h2>Επίλεξε Barber</h2>
-                  <p className="hint">Ποιον προτιμάς για το ραντεβού σου;</p>
+                  <p className="hint">Ποιον προτιμάς;</p>
                   <div className="barber-grid">
-                    {barbers.map(b => (
-                      <div key={String(b.id)}
-                        className={`barber-card ${barberId === b.id ? "selected" : ""}`}
+                    {BARBERS.map(b => (
+                      <div key={String(b.id)} className={`barber-card ${barberId===b.id?"selected":""}`}
                         onClick={() => setBarberId(b.id)}>
-                        <div className="barber-avatar">{b.id === "any" ? "👥" : (b as any).initials}</div>
+                        <div className="barber-avatar">{b.id==="any"?"👥":(b as any).initials}</div>
                         <div className="barber-name">{b.name}</div>
                         {b.role && <div className="barber-role">{b.role}</div>}
                         {b.rating && <div className="barber-rating">★ {b.rating}</div>}
@@ -431,11 +481,10 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
                 </>
               )}
 
-              {/* STEP 2 — SERVICE */}
-              {step === 2 && (
+              {step===2 && (
                 <>
                   <h2>Επίλεξε Υπηρεσία</h2>
-                  <p className="hint">Τι θα ήθελες να κάνεις σήμερα;</p>
+                  <p className="hint">Τι θα ήθελες να κάνεις;</p>
                   <div className="filter-tabs">
                     {cats.map(c => (
                       <div key={c} className={`filter-tab ${svcFilter===c?"active":""}`}
@@ -456,27 +505,26 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
                 </>
               )}
 
-              {/* STEP 3 — DATE & TIME */}
-              {step === 3 && (
+              {step===3 && (
                 <>
                   <h2>Ημέρα & Ώρα</h2>
                   <p className="hint">Διαθέσιμες ώρες με βάση το ωράριο</p>
                   <div className="day-pills">
-                    {days.map((d, i) => (
+                    {days.map((d,i) => (
                       <div key={i}
-                        className={`day-pill ${dayIndex===i?"selected":""} ${!hours[d.hIdx].active?"closed":""}`}
+                        className={`day-pill ${dayIndex===i?"selected":""} ${!hours[d.hIdx]?.active?"closed":""}`}
                         onClick={() => {
-                          if (!hours[d.hIdx].active) { showToast("Κλειστό αυτή την ημέρα"); return }
+                          if (!hours[d.hIdx]?.active) { showToast("Κλειστό αυτή την ημέρα"); return }
                           setDayIndex(i); setTime(null)
                         }}>
-                        <div className="dn">{dowShort[d.hIdx]}</div>
+                        <div className="dn">{DOW_SHORT[d.hIdx]}</div>
                         <div className="dd">{fmtDate(d.date)}</div>
                       </div>
                     ))}
                   </div>
-                  {dayIndex === null ? (
+                  {dayIndex===null ? (
                     <p className="hint">Επίλεξε πρώτα ημέρα</p>
-                  ) : !hours[days[dayIndex].hIdx].active ? (
+                  ) : !hours[days[dayIndex].hIdx]?.active ? (
                     <p className="hint">Κλειστό αυτή την ημέρα</p>
                   ) : (
                     <div className="slot-grid">
@@ -492,35 +540,33 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
                 </>
               )}
 
-              {/* STEP 4 — DETAILS */}
-              {step === 4 && (
+              {step===4 && (
                 <>
                   <h2>Τα Στοιχεία σου</h2>
                   <p className="hint">Ώστε το κατάστημα να επικοινωνήσει μαζί σου</p>
                   <div className="field-group">
                     <label>Ονοματεπώνυμο</label>
-                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="π.χ. Γιώργος Παπαδόπουλος"/>
+                    <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="π.χ. Γιώργος Παπαδόπουλος"/>
                   </div>
                   <div className="field-group">
                     <label>Τηλέφωνο</label>
-                    <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="π.χ. 6971234567"/>
+                    <input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="π.χ. 6971234567"/>
                   </div>
                   <div className="field-group">
                     <label>Email</label>
-                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com"/>
+                    <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="email@example.com"/>
                   </div>
                 </>
               )}
 
-              {/* STEP 5 — SUMMARY */}
-              {step === 5 && svc && day && barber && (
+              {step===5 && svc && day && barber && (
                 <>
                   <h2>Επιβεβαίωση Ραντεβού</h2>
                   <p className="hint">Έλεγξε τα στοιχεία πριν την οριστικοποίηση</p>
                   <div className="summary-row"><span className="lbl">Κατάστημα</span><span className="val">{shop.name}</span></div>
                   <div className="summary-row"><span className="lbl">Barber</span><span className="val">{barber.name}</span></div>
                   <div className="summary-row"><span className="lbl">Υπηρεσία</span><span className="val">{svc.name}</span></div>
-                  <div className="summary-row"><span className="lbl">Ημέρα</span><span className="val">{dowShort[day.hIdx]}, {fmtDate(day.date)}</span></div>
+                  <div className="summary-row"><span className="lbl">Ημέρα</span><span className="val">{DOW_SHORT[day.hIdx]}, {fmtDate(day.date)}</span></div>
                   <div className="summary-row"><span className="lbl">Ώρα</span><span className="val">{time}</span></div>
                   <div className="summary-row"><span className="lbl">Πελάτης</span><span className="val">{name}</span></div>
                   <div className="summary-row"><span className="lbl">Τηλέφωνο</span><span className="val">{phone}</span></div>
@@ -531,40 +577,31 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
           </div>
         )}
 
-        {/* SUCCESS */}
         {done && (
           <div className="panel" style={{margin:"16px 0"}}>
             <div className="success">
               <div className="check">✓</div>
               <h2>Το ραντεβού κλείστηκε!</h2>
-              <p>{svc?.name} · {day ? fmtDate(day.date) : ""} · {time}</p>
+              <p>{svc?.name} · {day?fmtDate(day.date):""} · {time}</p>
               <div className="summary-row"><span className="lbl">Κατάστημα</span><span className="val">{shop.name}</span></div>
               <div className="summary-row"><span className="lbl">Υπηρεσία</span><span className="val">{svc?.name}</span></div>
-              <div className="summary-row"><span className="lbl">Ημερομηνία</span><span className="val">{day ? fmtDate(day.date) : ""} · {time}</span></div>
+              <div className="summary-row"><span className="lbl">Ημερομηνία</span><span className="val">{day?fmtDate(day.date):""} · {time}</span></div>
             </div>
           </div>
         )}
       </div>
 
-      {/* BOTTOM BAR */}
-      {(wizardOpen || done) && (
+      {(wizardOpen||done) && (
         <div className="bottom-bar">
           <div className="bottom-bar-in">
             {done ? (
-              <button className="btn primary" onClick={() => window.location.href="/"}>
-                🏠 Πίσω στην Αρχική
-              </button>
+              <button className="btn primary" onClick={() => window.location.href="/"}>🏠 Πίσω στην Αρχική</button>
             ) : (
               <>
-                {step > 1 && (
-                  <button className="btn ghost" onClick={() => setStep(s => s - 1)}>← Πίσω</button>
-                )}
-                <button className="btn primary" disabled={!canNext || submitting}
-                  onClick={() => {
-                    if (step < 5) setStep(s => s + 1)
-                    else handleSubmit()
-                  }}>
-                  {submitting ? "⏳ Αποστολή..." : step === 5 ? "Οριστικοποίηση Ραντεβού" : "Επόμενο →"}
+                {step>1 && <button className="btn ghost" onClick={() => setStep(s=>s-1)}>← Πίσω</button>}
+                <button className="btn primary" disabled={!canNext||submitting}
+                  onClick={() => { if(step<5) setStep(s=>s+1); else handleSubmit() }}>
+                  {submitting?"⏳ Αποστολή...":step===5?"Οριστικοποίηση Ραντεβού":"Επόμενο →"}
                 </button>
               </>
             )}
@@ -572,8 +609,7 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
         </div>
       )}
 
-      {/* TOAST */}
-      <div className={`toast-bar ${toast ? "show" : ""}`}>{toast}</div>
+      <div className={`toast-bar ${toast?"show":""}`}>{toast}</div>
     </>
   )
 }

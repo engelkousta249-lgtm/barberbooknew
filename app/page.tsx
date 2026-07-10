@@ -728,7 +728,7 @@ const newStatic: any[] = []
                       <h4>{b.name}</h4>
                       <p className="loc">📍 {b.city}</p>
                       <div className="card-stars">★★★★★ <span style={{color:"var(--light)",opacity:0.5}}>{b.rating}</span></div>
-                      <button className="book-btn" onClick={e => { e.stopPropagation(); window.location.href = `/barbershops/${b.id}/book` }}>Κλείσε Ραντεβού</button>
+                      <button className="book-btn" onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); window.location.href = `/barbershops/${b.id}` }}>Κλείσε Ραντεβού</button>
                     </div>
                   </div>
                 ))}
@@ -769,7 +769,7 @@ const newStatic: any[] = []
                       <h4>{b.name}</h4>
                       <p className="loc">📍 {b.city}</p>
                       <div className="card-stars">★★★★☆ <span style={{color:"var(--light)",opacity:0.5}}>{b.rating||"Νέο"}</span></div>
-                      <button className="book-btn" onClick={e => { e.stopPropagation(); window.location.href = `/barbershops/${b.id}/book` }}>Κλείσε Ραντεβού</button>
+                      <button className="book-btn" onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); window.location.href = `/barbershops/${b.id}` }}>Κλείσε Ραντεβού</button>
                     </div>
                   </div>
                 ))}

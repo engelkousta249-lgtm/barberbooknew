@@ -92,6 +92,17 @@ useEffect(() => {
           .from("appointments").select("*")
           .eq("barbershop_id", profile.barbershop_id)
           .order("date", { ascending: true })
+
+        const { data: svcData } = await supabase
+          .from("services").select("*").eq("shop_id", profile.barbershop_id)
+        if (svcData && svcData.length > 0) {
+          setEditServices(svcData.map(s => ({
+            name: s.name,
+            duration: s.duration_minutes,
+            price: s.price,
+          })))
+        }
+
         setAppointments(appts || [])
       } else {
         // Δεν έχει κουρείο — μην δείχνεις τίποτα
@@ -593,7 +604,19 @@ useEffect(() => {
               <div className="panel" style={{maxWidth:580}}>
                 <div className="panel-head">
                   <h2>✂️ Υπηρεσίες & Τιμές</h2>
-                  <button className="btn sm primary" onClick={() => showToast("Αποθηκεύτηκε ✓")}>Αποθήκευση</button>
+                  <button className="btn sm primary" onClick={async () => {
+  if (!barbershop?.id) return
+  await supabase.from("services").delete().eq("shop_id", barbershop.id)
+  await supabase.from("services").insert(
+    editServices.map(s => ({
+      shop_id: barbershop.id,
+      name: s.name,
+      price: s.price,
+      duration_minutes: s.duration,
+    }))
+  )
+  showToast("Αποθηκεύτηκε ✓")
+}}>Αποθήκευση</button>
                 </div>
                 <div className="svc-head">
                   <span>Υπηρεσία</span><span>Λεπτά</span><span>Τιμή €</span><span/>
@@ -620,7 +643,22 @@ useEffect(() => {
               <div className="panel" style={{maxWidth:480}}>
                 <div className="panel-head">
                   <h2>🕒 Ωράριο Λειτουργίας</h2>
-                  <button className="btn sm primary" onClick={() => showToast("Αποθηκεύτηκε ✓")}>Αποθήκευση</button>
+                  <button className="btn sm primary" onClick={async () => {
+  if (!barbershop?.id) return
+  // Διάγραψε παλιά hours
+  await supabase.from("working_hours").delete().eq("shop_id", barbershop.id)
+  // Βάλε νέα
+  await supabase.from("working_hours").insert(
+    hours.map((h, i) => ({
+      shop_id: barbershop.id,
+      day_of_week: i,
+      is_active: h.active,
+      open_time: h.active ? h.open : null,
+      close_time: h.active ? h.close : null,
+    }))
+  )
+  showToast("Αποθηκεύτηκε ✓")
+}}>Αποθήκευση</button>
                 </div>
                 {hours.map((h,i) => (
                   <div key={h.day} className={`hour-row ${h.active?"":"off"}`}>

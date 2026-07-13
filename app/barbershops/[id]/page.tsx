@@ -44,7 +44,8 @@ const DOW_SHORT = ["ΔΕΥ","ΤΡΙ","ΤΕΤ","ΠΕΜ","ΠΑΡ","ΣΑΒ","ΚΥΡ
 function slotsInRange(open: string, close: string) {
   const [oh, om] = open.split(":").map(Number)
   const [ch] = close.split(":").map(Number)
-  let cur = oh * 60 + om, end = ch * 60
+  let cur = oh * 60 + om
+  const end = ch * 60
   const out: string[] = []
   while (cur < end) {
     out.push(String(Math.floor(cur/60)).padStart(2,"0")+":"+String(cur%60).padStart(2,"0"))

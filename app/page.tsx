@@ -557,6 +557,8 @@ const newStatic: any[] = []
           nav{padding:1rem 1.5rem;}
           .nav-links{display:none;}
           .hamburger{display:flex;}
+          .hamburger{display:flex;}
+  .nav-auth-btns{display:none;}
           .hero-stats{gap:1.5rem;}
           .feat-grid{grid-template-columns:1fr;}
           .calc-grid{grid-template-columns:1fr;}
@@ -624,21 +626,23 @@ const newStatic: any[] = []
         <ul className="nav-links">
           <li><a onClick={() => setPage("business")}>Για Επιχειρήσεις</a></li>
         </ul>
-       <div className="nav-right">
-  {user ? (
-    <>
-      <span style={{color:"var(--light)",fontSize:"0.8rem",opacity:0.7}}>
-        👤 {user.user_metadata?.full_name || user.email}
-      </span>
-      <button className="btn-ghost" onClick={handleLogout}>Αποσύνδεση</button>
-      <button className="btn-primary" onClick={() => window.location.href="/dashboard"}>Dashboard</button>
-    </>
-  ) : (
-    <>
-      <button className="btn-ghost" onClick={() => setModal("login")}>Σύνδεση</button>
-      <button className="btn-primary" onClick={() => setModal("register")}>Εγγραφή</button>
-    </>
-  )}
+      <div className="nav-right">
+  <div className="nav-auth-btns" style={{display:"flex",alignItems:"center",gap:"0.8rem"}}>
+    {user ? (
+      <>
+        <span style={{color:"var(--light)",fontSize:"0.8rem",opacity:0.7}}>
+          👤 {user.user_metadata?.full_name || user.email}
+        </span>
+        <button className="btn-ghost" onClick={handleLogout}>Αποσύνδεση</button>
+        <button className="btn-primary" onClick={() => window.location.href="/dashboard"}>Dashboard</button>
+      </>
+    ) : (
+      <>
+        <button className="btn-ghost" onClick={() => setModal("login")}>Σύνδεση</button>
+        <button className="btn-primary" onClick={() => setModal("register")}>Εγγραφή</button>
+      </>
+    )}
+  </div>
   <button className={`hamburger ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(!menuOpen)}>
     <span/><span/><span/>
   </button>

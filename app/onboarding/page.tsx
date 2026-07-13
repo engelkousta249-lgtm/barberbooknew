@@ -47,19 +47,18 @@ type Hour = { active: boolean; open: string; close: string };
 // ============================================================
 export default function OnboardingPage() {
   const router = useRouter();
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      console.log("User:", user)
-      if (user) {
-        setStep(2)
-      }
-    })
-  }, [])
+  
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [finalLink, setFinalLink] = useState('');
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      console.log('User:', user);
+      if (user) setStep(2);
+    });
+  }, []);
 
   // step 1 — account
   const [email, setEmail] = useState('');
@@ -256,6 +255,28 @@ export default function OnboardingPage() {
         role: 'owner',
         barbershop_id: shopData.id,
       });
+
+      // Αποθήκευση services
+if (services.length > 0) {
+  await supabase.from("services").insert(
+    services.map((s: any) => ({
+      shop_id: shopData.id,
+      name: s.name,
+      price: s.price,
+      duration_minutes: 30,
+    }))
+  )
+}
+// Αποθήκευση working hours
+await supabase.from("working_hours").insert(
+  hours.map((h: any, i: number) => ({
+    shop_id: shopData.id,
+    day_of_week: i,
+    is_active: h.active,
+    open_time: h.active ? h.open : null,
+    close_time: h.active ? h.close : null,
+  }))
+)
 
       await fetch('/api/send-email', {
         method: 'POST',

@@ -3,93 +3,54 @@
 import { useState, useEffect, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-import AddressAutocomplete, { AddressData } from '@/components/AddressAutocomplete';
 
-// ============================================================
-// Supabase client (inline — move to env vars when you're ready)
-// ============================================================
 const supabase = createClient(
   'https://xcfkhdjiragblsiqetes.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjZmtoZGppcmFnYmxzaXFldGVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2OTY0ODYsImV4cCI6MjA5NzI3MjQ4Nn0.EkmgRuYzrvF0A_pgT9vaOouMRKeQ2kasPZxpoIuCgeE'
-);
+)
 
-// ============================================================
-// Config
-// ============================================================
-const TOTAL_STEPS = 6;
-const CATEGORIES = ['Κουρείο', 'Barbershop', 'Κομμωτήριο', 'Nail Salon'];
-const DAY_LABELS = ['Δευ', 'Τρί', 'Τετ', 'Πέμ', 'Παρ', 'Σάβ', 'Κυρ'];
+const DAY_LABELS = ['Δευ', 'Τρί', 'Τετ', 'Πέμ', 'Παρ', 'Σάβ', 'Κυρ']
 
-function slugify(str: string) {
-  const map: Record<string, string> = {
-    ά: 'a', έ: 'e', ή: 'i', ί: 'i', ό: 'o', ύ: 'y', ώ: 'o',
-    α: 'a', β: 'v', γ: 'g', δ: 'd', ε: 'e', ζ: 'z', η: 'i', θ: 'th',
-    ι: 'i', κ: 'k', λ: 'l', μ: 'm', ν: 'n', ξ: 'x', ο: 'o', π: 'p',
-    ρ: 'r', σ: 's', ς: 's', τ: 't', υ: 'y', φ: 'f', χ: 'ch', ψ: 'ps', ω: 'o',
-  };
-  return (
-    (str || '')
-      .toLowerCase()
-      .split('')
-      .map((ch) => map[ch] || ch)
-      .join('')
-      .replace(/[^a-z0-9\s-]/g, '')
-      .trim()
-      .replace(/\s+/g, '-') || 'to-katastima-mou'
-  );
+function getMaxBarbers(numBarbers: number) {
+  if (numBarbers <= 1) return 1      // Freemium/Solo
+  if (numBarbers === 2) return 2     // Duo
+  return 10                          // Team (3+)
 }
 
-type Service = { name: string; price: number };
-type Hour = { active: boolean; open: string; close: string };
+type Service = { name: string; price: number }
+type Hour = { active: boolean; open: string; close: string }
+type Barber = { name: string; role: string }
 
-// ============================================================
-// Page
-// ============================================================
 export default function OnboardingPage() {
-  const router = useRouter();
-  
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [finalLink, setFinalLink] = useState('');
+  const router = useRouter()
+  const [step, setStep] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [finalLink, setFinalLink] = useState('')
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      console.log('User:', user);
-      if (user) setStep(2);
-    });
-  }, []);
+  // Step 1 — Account
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPass, setShowPass] = useState(false)
 
-  // step 1 — account
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  // Step 2 — Shop Info
+  const [shopName, setShopName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [city, setCity] = useState('')
+  const [street, setStreet] = useState('')
+  const [streetNumber, setStreetNumber] = useState('')
+  const [postalCode, setPostalCode] = useState('')
+  const [numBarbers, setNumBarbers] = useState(1)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState('')
 
-  // step 2 — business
-  const [shopName, setShopName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [street, setStreet] = useState('');
-  const [streetNumber, setStreetNumber] = useState('');
-  const [city, setCity] = useState('');
-  const [postalCode, setPostalCode] = useState('');
-  const [address, setAddress] = useState('');
-  const [teamSize, setTeamSize] = useState(1);
-  const [category, setCategory] = useState(CATEGORIES[0]);
-  const [bio, setBio] = useState('');
-  const [instagram, setInstagram] = useState('');
-  const [facebook, setFacebook] = useState('');
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState('');
-
-  // step 3 — services
+  // Step 3 — Services
   const [services, setServices] = useState<Service[]>([
-    { name: 'Ανδρικό Κούρεμα', price: 15 },
-    { name: 'Κούρεμα + Γένια', price: 22 },
-  ]);
-  const [newSvcName, setNewSvcName] = useState('');
-  const [newSvcPrice, setNewSvcPrice] = useState('');
+    { name: 'Κούρεμα', price: 15 },
+    { name: 'Fade', price: 18 },
+  ])
 
-  // step 4 — hours
+  // Step 4 — Hours
   const [hours, setHours] = useState<Hour[]>([
     { active: true, open: '09:00', close: '19:00' },
     { active: true, open: '09:00', close: '19:00' },
@@ -98,491 +59,574 @@ export default function OnboardingPage() {
     { active: true, open: '09:00', close: '21:00' },
     { active: true, open: '10:00', close: '16:00' },
     { active: false, open: '', close: '' },
-  ]);
+  ])
 
-  // step 5 — photos
-  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  // Step 5 — Barbers (μόνο αν numBarbers > 1)
+  const [barbers, setBarbers] = useState<Barber[]>([{ name: '', role: 'Barber' }])
 
-  const handleAddressChange = (addressData: AddressData) => {
-    setStreet(addressData.street);
-    setStreetNumber(addressData.streetNumber);
-    setCity(addressData.city);
-    setPostalCode(addressData.postalCode);
-    setAddress(`${addressData.street} ${addressData.streetNumber}`.trim());
-  };
+  const maxBarbers = getMaxBarbers(numBarbers)
+  const hasBarberStep = numBarbers > 1
+  const TOTAL_STEPS = hasBarberStep ? 5 : 4
 
-  function back() {
-    setError('');
-    setStep((prev) => Math.max(1, prev - 1));
-  }
-
-  async function next() {
-    setError('');
-    if (step === TOTAL_STEPS) {
-      await handleFinish();
-      return;
-    }
-    setStep((prev) => Math.min(TOTAL_STEPS, prev + 1));
-  }
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setEmail(user.email || '')
+        setStep(2)
+      }
+    })
+  }, [])
 
   function canNext() {
-    if (step === 1) return email.trim() && password.trim().length >= 6;
-    if (step === 2) return shopName.trim() && phone.trim() && street.trim() && city.trim();
-    if (step === 3) return services.length > 0;
-    return true;
-  }
-
-  function addService() {
-    const price = Number(newSvcPrice) || 0;
-    if (!newSvcName.trim()) return;
-    setServices([...services, { name: newSvcName.trim(), price }]);
-    setNewSvcName('');
-    setNewSvcPrice('');
-  }
-  function removeService(i: number) {
-    setServices(services.filter((_, idx) => idx !== i));
-  }
-
-  function toggleHour(i: number) {
-    setHours((prev) =>
-      prev.map((h, idx) =>
-        idx === i
-          ? {
-              ...h,
-              active: !h.active,
-              open: !h.active && !h.open ? '09:00' : h.open,
-              close: !h.active && !h.close ? '19:00' : h.close,
-            }
-          : h
-      )
-    );
-  }
-  function updateHour(i: number, field: 'open' | 'close', value: string) {
-    setHours((prev) => prev.map((h, idx) => (idx === i ? { ...h, [field]: value } : h)));
-  }
-
-  function onLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setLogoFile(f);
-    setLogoPreview(URL.createObjectURL(f));
-  }
-  function onPhotosSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []).slice(0, 10 - photoFiles.length);
-    setPhotoFiles((prev) => [...prev, ...files]);
-    setPhotoPreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
-  }
-  function removePhoto(i: number) {
-    setPhotoFiles((prev) => prev.filter((_, idx) => idx !== i));
-    setPhotoPreviews((prev) => prev.filter((_, idx) => idx !== i));
+    if (step === 1) return email.trim() !== '' && password.length >= 6
+    if (step === 2) return shopName.trim() !== '' && phone.trim() !== '' && city.trim() !== ''
+    if (step === 3) return services.length > 0 && services.every(s => s.name.trim() !== '')
+    if (step === 4) return true
+    if (step === 5) return barbers.length > 0 && barbers.every(b => b.name.trim() !== '')
+    return false
   }
 
   async function uploadToBucket(file: File, path: string) {
-    const { error: upErr } = await supabase.storage.from('shop-media').upload(path, file, {
-      upsert: true,
-    });
-    if (upErr) throw upErr;
-    const { data } = supabase.storage.from('shop-media').getPublicUrl(path);
-    return data.publicUrl;
+    const { error: upErr } = await supabase.storage.from('shop-media').upload(path, file, { upsert: true })
+    if (upErr) throw upErr
+    const { data } = supabase.storage.from('shop-media').getPublicUrl(path)
+    return data.publicUrl
   }
 
   async function handleFinish() {
-    setLoading(true);
-    setError('');
-
+    setLoading(true)
+    setError('')
     try {
-      let userId = '';
-      const { data: { user: existingUser } } = await supabase.auth.getUser();
+      let userId = ''
+      const { data: { user: existingUser } } = await supabase.auth.getUser()
 
       if (existingUser) {
-        userId = existingUser.id;
+        userId = existingUser.id
       } else {
         const { data: authData, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: fullName } },
-        });
-        if (authError) {
-          setError(authError.message);
-          setLoading(false);
-          return;
-        }
-        if (!authData.user?.id) {
-          setError('Σφάλμα εγγραφής!');
-          setLoading(false);
-          return;
-        }
-        userId = authData.user.id;
+          email, password,
+          options: { data: { full_name: shopName } }
+        })
+        if (authError) { setError(authError.message); setLoading(false); return }
+        if (!authData.user?.id) { setError('Σφάλμα εγγραφής!'); setLoading(false); return }
+        userId = authData.user.id
       }
 
-      const slug = slugify(shopName || `${fullName}-${city}`);
-      const logoUrl = logoFile ? await uploadToBucket(logoFile, `logos/${slug}-${logoFile.name}`) : '';
-      const coverUrl = photoFiles[0]
-        ? await uploadToBucket(photoFiles[0], `covers/${slug}-${photoFiles[0].name}`)
-        : '';
+      // Upload logo
+      let logoUrl: string | null = null
+      if (logoFile) {
+        logoUrl = await uploadToBucket(logoFile, `${userId}/logo-${Date.now()}`)
+      }
 
-      const { data: shopData, error: shopError } = await supabase
+      // Δημιουργία barbershop
+      const fullAddress = `${street} ${streetNumber}, ${postalCode} ${city}`.trim()
+      const { data: shop, error: shopErr } = await supabase
         .from('barbershops')
         .insert({
           name: shopName,
-          city,
-          address,
           phone,
-          email: email || existingUser?.email,
-          bio,
-          num_barbers: teamSize,
-          category,
+          address: fullAddress,
+          city,
+          email: existingUser?.email || email,
           logo_url: logoUrl,
-          cover_url: coverUrl,
-          instagram,
-          facebook,
+          num_barbers: numBarbers,
           description: '',
           rating: 5.0,
         })
-        .select()
-        .single();
-
-      if (shopError) {
-        setError('Σφάλμα δημιουργίας κουρείου: ' + shopError.message);
-        setLoading(false);
-        return;
-      }
-
-      await supabase.from('profiles').upsert({
-        id: userId,
-        full_name: fullName,
-        role: 'owner',
-        barbershop_id: shopData.id,
-      });
+        .select().single()
+      if (shopErr) { setError('Σφάλμα κουρείου: ' + shopErr.message); setLoading(false); return }
 
       // Αποθήκευση services
-if (services.length > 0) {
-  await supabase.from("services").insert(
-    services.map((s: any) => ({
-      shop_id: shopData.id,
-      name: s.name,
-      price: s.price,
-      duration_minutes: 30,
-    }))
-  )
-}
-// Αποθήκευση working hours
-await supabase.from("working_hours").insert(
-  hours.map((h: any, i: number) => ({
-    shop_id: shopData.id,
-    day_of_week: i,
-    is_active: h.active,
-    open_time: h.active ? h.open : null,
-    close_time: h.active ? h.close : null,
-  }))
-)
+      if (services.length > 0) {
+        await supabase.from('services').insert(
+          services.map(s => ({
+            shop_id: shop.id,
+            name: s.name,
+            price: s.price,
+            duration_minutes: 30,
+          }))
+        )
+      }
 
+      // Αποθήκευση working hours
+      await supabase.from('working_hours').insert(
+        hours.map((h, i) => ({
+          shop_id: shop.id,
+          day_of_week: i,
+          is_active: h.active,
+          open_time: h.active ? h.open : null,
+          close_time: h.active ? h.close : null,
+        }))
+      )
+
+      // Αποθήκευση barbers (αν > 1)
+      if (hasBarberStep && barbers.length > 0) {
+        await supabase.from('barbers').insert(
+          barbers.filter(b => b.name.trim()).map(b => ({
+            shop_id: shop.id,
+            name: b.name,
+            role: b.role || 'Barber',
+          }))
+        )
+      }
+
+      // Update profile → owner
+      await supabase.from('profiles').upsert({
+        id: userId,
+        full_name: shopName,
+        role: 'owner',
+        barbershop_id: shop.id,
+      })
+
+      // Welcome email
       await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'welcome_owner',
-          to: email,
-          data: { ownerName: fullName, shopName, city },
-        }),
-      });
+          to: existingUser?.email || email,
+          data: { ownerName: shopName, shopName, city }
+        })
+      })
 
-      setFinalLink(`barberbook.app/${slug}`);
-      setStep(TOTAL_STEPS + 1);
+      setFinalLink(`barberbook.gr/${shopName.toLowerCase()}`)
+      setStep(TOTAL_STEPS + 1)
     } catch (e: any) {
-      setError('Κάτι πήγε στραβά: ' + (e?.message || 'Άγνωστο σφάλμα'));
+      setError('Κάτι πήγε στραβά: ' + e.message)
     }
-
-    setLoading(false);
+    setLoading(false)
   }
-  const pct = step > TOTAL_STEPS ? 100 : Math.round(((step - 1) / TOTAL_STEPS) * 100);
 
-  const inputCls =
-    'w-full bg-[#101c33] border border-white/10 rounded-xl px-3.5 py-3 text-sm text-[#eaeef6] focus:outline-none focus:border-[#3b7bff]';
-  const timeInputCls =
-    'bg-[#101c33] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-[#eaeef6] focus:outline-none focus:border-[#3b7bff]';
-  const stepperBtnCls =
-    'w-8 h-8 rounded-lg border border-white/10 bg-[#101c33] font-bold flex items-center justify-center';
+  function next() {
+    if (!canNext()) return
+    if (step === TOTAL_STEPS) handleFinish()
+    else setStep(s => s + 1)
+  }
+
+  function back() {
+    setError('')
+    setStep(s => Math.max(1, s - 1))
+  }
+
+  const stepsDone = step > TOTAL_STEPS
+
+  const stepLabels = [
+    'Λογαριασμός',
+    'Κατάστημα',
+    'Υπηρεσίες',
+    'Ωράριο',
+    ...(hasBarberStep ? ['Ομάδα'] : []),
+  ]
 
   return (
-    <div className="min-h-screen bg-[#070c16] text-[#eaeef6]">
-      <div className="max-w-lg mx-auto px-5 py-8 pb-28">
-        {/* brand */}
-        <div className="flex items-center gap-2 mb-6">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#3b7bff] to-[#d4af37] flex items-center justify-center text-sm">
-            ✂️
-          </div>
-          <span className="font-bold text-lg">BarberBook</span>
-        </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+        :root{
+          --bg:#0a0f1e;--card:#111827;--card2:#1a2235;--border:rgba(255,255,255,.07);
+          --blue:#3b82f6;--blue-soft:rgba(59,130,246,.12);--blue-glow:rgba(59,130,246,.3);
+          --gold:#f59e0b;--text:#f1f5f9;--muted:#64748b;--muted2:#94a3b8;
+          --green:#10b981;--red:#ef4444;
+        }
+        *{box-sizing:border-box;margin:0;padding:0;}
+        html,body{min-height:100vh;}
+        body{font-family:'Inter',sans-serif;color:var(--text);background:var(--bg);
+          background-image:radial-gradient(ellipse 800px 600px at 20% 0%,rgba(59,130,246,.08),transparent),
+          radial-gradient(ellipse 600px 400px at 80% 100%,rgba(245,158,11,.05),transparent);}
+        h1,h2,h3{font-family:'Outfit',sans-serif;}
+        button,input,select{font-family:inherit;}
+        .nav{position:fixed;top:0;left:0;right:0;z-index:50;height:60px;padding:0 32px;
+          display:flex;align-items:center;justify-content:space-between;
+          background:rgba(10,15,30,.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);}
+        .brand{font-size:20px;font-weight:800;background:linear-gradient(135deg,var(--blue),var(--gold));
+          -webkit-background-clip:text;-webkit-text-fill-color:transparent;cursor:pointer;}
+        .nav-back{display:flex;align-items:center;gap:6px;color:var(--muted2);font-size:13px;
+          font-weight:500;cursor:pointer;background:none;border:none;transition:color .2s;}
+        .nav-back:hover{color:var(--text);}
+        .main{min-height:100vh;padding:80px 24px 48px;display:flex;align-items:flex-start;justify-content:center;}
+        .container{width:100%;max-width:960px;display:grid;grid-template-columns:280px 1fr;gap:24px;align-items:start;}
+        .sidebar{background:var(--card);border:1px solid var(--border);border-radius:20px;
+          padding:28px 20px;position:sticky;top:80px;}
+        .sidebar-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+          color:var(--muted);margin-bottom:20px;}
+        .step-item{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:12px;
+          margin-bottom:6px;border:1px solid transparent;transition:all .2s;}
+        .step-item.active{background:var(--blue-soft);border-color:rgba(59,130,246,.25);}
+        .step-item.done{opacity:.7;}
+        .step-icon{width:38px;height:38px;border-radius:10px;flex-shrink:0;display:flex;
+          align-items:center;justify-content:center;font-size:18px;background:var(--card2);
+          border:1px solid var(--border);transition:all .2s;}
+        .step-item.active .step-icon{background:var(--blue-soft);border-color:rgba(59,130,246,.3);}
+        .step-item.done .step-icon{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.25);}
+        .step-info{min-width:0;}
+        .step-name{font-size:13.5px;font-weight:700;color:var(--text);}
+        .step-item.active .step-name{color:#93c5fd;}
+        .step-item.done .step-name{color:var(--green);}
+        .step-desc{font-size:11px;color:var(--muted);margin-top:2px;}
+        .step-check{margin-left:auto;font-size:14px;color:var(--green);flex-shrink:0;}
+        .progress-wrap{margin-top:24px;padding-top:20px;border-top:1px solid var(--border);}
+        .progress-label{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:8px;}
+        .progress-bar{height:4px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;}
+        .progress-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--gold));
+          border-radius:4px;transition:width .4s ease;}
+        .card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:32px;
+          animation:fadeIn .3s ease;}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+        .card-icon{width:48px;height:48px;border-radius:14px;margin-bottom:16px;display:flex;
+          align-items:center;justify-content:center;font-size:24px;
+          background:var(--blue-soft);border:1px solid rgba(59,130,246,.2);}
+        .card-title{font-size:20px;font-weight:700;margin-bottom:6px;}
+        .card-sub{font-size:13.5px;color:var(--muted2);line-height:1.6;margin-bottom:24px;}
+        .field{margin-bottom:16px;}
+        .field label{display:block;font-size:11.5px;font-weight:600;color:var(--muted2);
+          text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;}
+        .field input,.field select{width:100%;background:var(--card2);border:1px solid var(--border);
+          border-radius:10px;padding:12px 14px;font-size:14px;color:var(--text);outline:none;transition:all .2s;}
+        .field input:focus,.field select:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft);}
+        .field input::placeholder{color:var(--muted);}
+        .field select option{background:var(--card2);}
+        .field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+        .field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+        .pass-wrap{position:relative;}
+        .pass-wrap input{padding-right:44px;}
+        .pass-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);
+          background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px;}
+        .error-box{display:flex;align-items:center;gap:10px;
+          background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);
+          border-radius:10px;padding:12px 14px;font-size:13px;color:var(--red);margin-bottom:16px;}
+        .svc-head{display:grid;grid-template-columns:1fr 80px 32px;gap:8px;
+          font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;
+          font-weight:600;margin-bottom:10px;padding:0 2px;}
+        .svc-row{display:grid;grid-template-columns:1fr 80px 32px;gap:8px;align-items:center;margin-bottom:8px;}
+        .svc-inp{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:9px;
+          padding:9px 11px;font-size:13.5px;color:var(--text);outline:none;transition:all .2s;}
+        .svc-inp:focus{border-color:var(--blue);}
+        .svc-inp.gold{color:var(--gold);font-weight:700;}
+        .del-btn{width:32px;height:32px;border-radius:8px;background:rgba(239,68,68,.08);
+          border:1px solid rgba(239,68,68,.15);color:var(--red);cursor:pointer;
+          display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .2s;}
+        .del-btn:hover{background:rgba(239,68,68,.15);}
+        .add-btn{width:100%;padding:10px;border-radius:10px;
+          border:1.5px dashed rgba(59,130,246,.25);background:rgba(59,130,246,.04);
+          color:#60a5fa;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;transition:all .2s;}
+        .add-btn:hover{border-color:var(--blue);background:var(--blue-soft);}
+        .add-btn:disabled{opacity:.4;cursor:not-allowed;}
+        .hour-row{display:flex;align-items:center;gap:12px;padding:11px 14px;
+          background:var(--card2);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;}
+        .hour-row.off{opacity:.45;}
+        .hour-day{font-size:13px;font-weight:700;width:34px;flex-shrink:0;}
+        .hour-inp{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;
+          padding:7px 9px;font-size:12.5px;color:var(--text);font-family:'Inter',sans-serif;outline:none;}
+        .hour-inp:focus{border-color:var(--blue);}
+        .hour-sep{color:var(--muted);font-size:12px;}
+        .hour-closed{font-size:12px;color:var(--muted);flex:1;}
+        .toggle{width:40px;height:22px;border-radius:999px;background:rgba(255,255,255,.08);
+          border:1px solid var(--border);position:relative;cursor:pointer;flex-shrink:0;
+          margin-left:auto;transition:all .25s;}
+        .toggle::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;
+          border-radius:50%;background:var(--muted);transition:all .25s;}
+        .toggle.on{background:rgba(59,130,246,.25);border-color:rgba(59,130,246,.4);}
+        .toggle.on::after{left:21px;background:var(--blue);}
+        .logo-upload{border:2px dashed rgba(59,130,246,.25);border-radius:14px;padding:24px;
+          text-align:center;cursor:pointer;transition:all .2s;background:rgba(59,130,246,.04);}
+        .logo-upload:hover{border-color:var(--blue);background:var(--blue-soft);}
+        .logo-preview{width:80px;height:80px;border-radius:50%;object-fit:cover;
+          border:3px solid var(--blue);margin:0 auto 12px;display:block;}
+        .team-head{display:grid;grid-template-columns:1fr 1fr 32px;gap:8px;
+          font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;
+          font-weight:600;margin-bottom:10px;padding:0 2px;}
+        .team-row{display:grid;grid-template-columns:1fr 1fr 32px;gap:8px;align-items:center;margin-bottom:8px;}
+        .limit-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;
+          background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);
+          border-radius:999px;font-size:12px;font-weight:600;color:var(--gold);margin-bottom:16px;}
+        .actions{display:flex;gap:10px;margin-top:28px;}
+        .btn{padding:13px 24px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;
+          transition:all .2s;border:1px solid var(--border);background:var(--card2);color:var(--text);}
+        .btn:hover{border-color:var(--blue);}
+        .btn.primary{background:linear-gradient(135deg,var(--blue),#1d4ed8);border:none;color:#fff;
+          flex:1;box-shadow:0 8px 24px -8px var(--blue-glow);}
+        .btn.primary:hover{filter:brightness(1.08);transform:translateY(-1px);}
+        .btn.primary:disabled{opacity:.4;cursor:not-allowed;transform:none;filter:none;}
+        .btn.ghost{background:none;flex-shrink:0;}
+        .success{text-align:center;padding:16px 0;}
+        .check-wrap{width:80px;height:80px;border-radius:50%;
+          background:linear-gradient(135deg,var(--green),#059669);
+          display:flex;align-items:center;justify-content:center;font-size:36px;
+          margin:0 auto 24px;box-shadow:0 0 0 12px rgba(16,185,129,.1),0 0 40px rgba(16,185,129,.25);
+          animation:popIn .5s cubic-bezier(.34,1.56,.64,1) both;}
+        @keyframes popIn{0%{opacity:0;transform:scale(0);}70%{transform:scale(1.1);}100%{opacity:1;transform:scale(1);}}
+        .success h2{font-size:22px;font-weight:700;margin-bottom:10px;}
+        .success p{color:var(--muted2);font-size:14px;line-height:1.7;margin-bottom:24px;}
+        .success-card{background:var(--card2);border:1px solid var(--border);border-radius:14px;
+          padding:18px;margin-bottom:24px;text-align:left;}
+        .sc-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+          border-bottom:1px solid var(--border);font-size:13.5px;}
+        .sc-row:last-child{border-bottom:none;}
+        .sc-label{color:var(--muted2);}
+        .sc-val{font-weight:700;}
+        @media(max-width:768px){
+          .container{grid-template-columns:1fr;}
+          .sidebar{display:none;}
+          .card{padding:24px 20px;}
+          .field-row,.field-row3{grid-template-columns:1fr;}
+          .svc-row,.svc-head{grid-template-columns:1fr 68px 30px;}
+          .team-row,.team-head{grid-template-columns:1fr 30px;}
+        }
+      `}</style>
 
-        {/* progress */}
-        <div className="mb-7">
-          <div className="flex justify-between text-xs mb-2">
-            <span className="text-[#8a97ac] font-semibold">
-              {step > TOTAL_STEPS ? 'Ολοκληρώθηκε!' : `Βήμα ${step} από ${TOTAL_STEPS}`}
-            </span>
-            <span className="text-[#3b7bff] font-bold">{pct}%</span>
-          </div>
-          <div className="h-1.5 rounded-full bg-[#101c33] overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-[#3b7bff] to-[#d4af37] transition-all duration-500"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-        </div>
+      <nav className="nav">
+        <div className="brand">BarberBook</div>
+        <button className="nav-back" onClick={() => window.location.href="/"}>← Πίσω</button>
+      </nav>
 
-        {error && (
-          <div className="mb-4 p-3 rounded-lg bg-[#ff5c72]/10 border border-[#ff5c72]/30 text-[#ff5c72] text-sm">
-            {error}
-          </div>
-        )}
+      <div className="main">
+        <div className="container">
 
-        {/* ---------------- STEP 1 — account ---------------- */}
-        {step === 1 && (
-          <div>
-            <div className="w-16 h-16 rounded-2xl mb-4 bg-gradient-to-br from-[#3b7bff]/15 to-[#d4af37]/15 border border-white/10 flex items-center justify-center text-2xl">
-              👋
-            </div>
-            <h1 className="text-2xl font-extrabold mb-2">Καλώς ήρθες στο BarberBook</h1>
-            <p className="text-[#8a97ac] text-sm mb-6 leading-relaxed">
-              Δημιούργησε λογαριασμό για να ξεκινήσεις να δέχεσαι ραντεβού online.
-            </p>
-            <div className="mb-4">
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputCls} />
-            </div>
-            <div className="mb-4">
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Κωδικός</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Τουλάχιστον 6 χαρακτήρες" className={inputCls} />
-            </div>
-          </div>
-        )}
-
-        {/* ---------------- STEP 2 — business ---------------- */}
-        {step === 2 && (
-          <div>
-            <div className="w-16 h-16 rounded-2xl mb-4 bg-gradient-to-br from-[#3b7bff]/15 to-[#d4af37]/15 border border-white/10 flex items-center justify-center text-2xl">
-              💈
-            </div>
-            <h1 className="text-2xl font-extrabold mb-2">Στοιχεία Καταστήματος</h1>
-            <p className="text-[#8a97ac] text-sm mb-6 leading-relaxed">Θα φαίνονται στο δημόσιο προφίλ σου.</p>
-
-            <div className="flex items-center gap-4 mb-5">
-              <label className="w-20 h-20 rounded-2xl border-2 border-dashed border-white/10 bg-[#0b1424] flex items-center justify-center cursor-pointer overflow-hidden shrink-0 hover:border-[#3b7bff]">
-                {logoPreview ? (
-                  <img src={logoPreview} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-2xl opacity-60">🖼️</span>
-                )}
-                <input type="file" accept="image/*" onChange={onLogoSelect} className="hidden" />
-              </label>
-              <div className="text-sm">
-                <div className="font-bold">Λογότυπο καταστήματος</div>
-                <div className="text-[#8a97ac] text-xs mt-1">Τετράγωνη φωτογραφία για το προφίλ σου</div>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Όνομα καταστήματος</label>
-              <input value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="π.χ. barberhood" className={inputCls} />
-            </div>
-
-
-
-            <div className="mb-4">
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Τηλέφωνο</label>
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="69XXXXXXXX" className={inputCls} />
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Διεύθυνση</label>
-              <AddressAutocomplete onAddressChange={handleAddressChange} />
-            </div>
-
-
-          </div>
-        )}
-
-        {/* ---------------- STEP 3 — services ---------------- */}
-        {step === 3 && (
-          <div>
-            <div className="w-16 h-16 rounded-2xl mb-4 bg-gradient-to-br from-[#3b7bff]/15 to-[#d4af37]/15 border border-white/10 flex items-center justify-center text-2xl">
-              ✂️
-            </div>
-            <h1 className="text-2xl font-extrabold mb-2">Οι Υπηρεσίες σου</h1>
-            <p className="text-[#8a97ac] text-sm mb-6 leading-relaxed">Πρόσθεσε τουλάχιστον μία υπηρεσία.</p>
-
-            <div className="bg-[#0b1424] border border-white/10 rounded-2xl p-4 mb-4">
-              <div className="text-sm font-bold mb-3">➕ Προσθήκη Νέας Υπηρεσίας</div>
-              <div className="flex gap-2 mb-3">
-                <input value={newSvcName} onChange={(e) => setNewSvcName(e.target.value)} placeholder="Όνομα υπηρεσίας" className={`${inputCls} flex-[2]`} />
-                <input value={newSvcPrice} onChange={(e) => setNewSvcPrice(e.target.value)} placeholder="€" type="number" className={`${inputCls} flex-1`} />
-              </div>
-              <button type="button" onClick={addService} className="w-full py-3 rounded-lg bg-gradient-to-br from-[#3b7bff] to-[#2a5fd9] font-bold text-sm">
-                Προσθήκη Υπηρεσίας
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              {services.map((s, i) => (
-                <div key={i} className="flex justify-between items-center bg-[#0b1424] border border-white/10 rounded-xl px-4 py-3">
-                  <span className="text-sm">{s.name} — €{s.price}</span>
-                  <button type="button" onClick={() => removeService(i)} className="text-[#ff5c72] text-sm px-1">✕</button>
+          {/* SIDEBAR */}
+          <div className="sidebar">
+            <div className="sidebar-title">Πρόοδος Εγγραφής</div>
+            {stepLabels.map((label, i) => {
+              const icons = ['👤','💈','✂️','🕒','👥']
+              const descs = ['Στοιχεία εισόδου','Πληροφορίες καταστήματος','Τιμοκατάλογος','Ώρες λειτουργίας','Ομάδα barbers']
+              const sNum = i + 1
+              return (
+                <div key={label} className={`step-item ${step===sNum?"active":""} ${step>sNum?"done":""}`}>
+                  <div className="step-icon">{step > sNum ? "✓" : icons[i]}</div>
+                  <div className="step-info">
+                    <div className="step-name">{label}</div>
+                    <div className="step-desc">{descs[i]}</div>
+                  </div>
+                  {step > sNum && <span className="step-check">✓</span>}
                 </div>
-              ))}
+              )
+            })}
+            <div className="progress-wrap">
+              <div className="progress-label">
+                <span>Ολοκλήρωση</span>
+                <span>{Math.round(((step-1)/TOTAL_STEPS)*100)}%</span>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{width:`${((step-1)/TOTAL_STEPS)*100}%`}}/>
+              </div>
             </div>
           </div>
-        )}
 
-        {/* ---------------- STEP 4 — hours ---------------- */}
-        {step === 4 && (
-          <div>
-            <div className="w-16 h-16 rounded-2xl mb-4 bg-gradient-to-br from-[#3b7bff]/15 to-[#d4af37]/15 border border-white/10 flex items-center justify-center text-2xl">
-              🕒
-            </div>
-            <h1 className="text-2xl font-extrabold mb-2">Ωράριο Λειτουργίας</h1>
-            <p className="text-[#8a97ac] text-sm mb-6 leading-relaxed">Όρισε πότε είσαι διαθέσιμος.</p>
+          {/* MAIN CARD */}
+          <div className="card">
+            {error && <div className="error-box">⚠️ {error}</div>}
 
-            {hours.map((h, i) => (
-              <div key={i} className="flex items-center gap-3 py-3 border-b border-white/5 last:border-0">
-                <span className="font-bold text-sm w-10">{DAY_LABELS[i]}</span>
-                {h.active ? (
+            {!stepsDone ? (
+              <>
+                {/* STEP 1 — ACCOUNT */}
+                {step === 1 && (
                   <>
-                    <input type="time" value={h.open} onChange={(e) => updateHour(i, 'open', e.target.value)} step={1800} className={timeInputCls} />
-                    <span className="text-[#8a97ac] text-xs">–</span>
-                    <input type="time" value={h.close} onChange={(e) => updateHour(i, 'close', e.target.value)} step={1800} className={timeInputCls} />
+                    <div className="card-icon">👤</div>
+                    <div className="card-title">Δημιούργησε Λογαριασμό</div>
+                    <div className="card-sub">Τα στοιχεία σου για να συνδέεσαι στο BarberBook</div>
+                    <div className="field">
+                      <label>Email</label>
+                      <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="email@example.com"/>
+                    </div>
+                    <div className="field">
+                      <label>Κωδικός</label>
+                      <div className="pass-wrap">
+                        <input type={showPass?"text":"password"} value={password}
+                          onChange={e=>setPassword(e.target.value)} placeholder="Τουλάχιστον 6 χαρακτήρες"/>
+                        <button className="pass-eye" type="button" onClick={()=>setShowPass(!showPass)}>
+                          {showPass?"🙈":"👁️"}
+                        </button>
+                      </div>
+                    </div>
                   </>
-                ) : (
-                  <span className="text-[#8a97ac] text-sm">Κλειστά</span>
                 )}
-                <button
-                  type="button"
-                  onClick={() => toggleHour(i)}
-                  className={`ml-auto w-9 h-5 rounded-full relative transition ${h.active ? 'bg-[#3b7bff]/40 border border-[#3b7bff]' : 'bg-[#16233f] border border-white/10'}`}
-                >
-                  <span className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-all ${h.active ? 'left-[18px]' : 'left-0.5'}`} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
 
-        {/* ---------------- STEP 5 — photos ---------------- */}
-        {step === 5 && (
-          <div>
-            <div className="w-16 h-16 rounded-2xl mb-4 bg-gradient-to-br from-[#3b7bff]/15 to-[#d4af37]/15 border border-white/10 flex items-center justify-center text-2xl">
-              📸
-            </div>
-            <h1 className="text-2xl font-extrabold mb-2">Φωτογραφίες Καταστήματος</h1>
-            <p className="text-[#8a97ac] text-sm mb-6 leading-relaxed">Τα προφίλ με φωτό δέχονται περισσότερα ραντεβού.</p>
+                {/* STEP 2 — SHOP */}
+                {step === 2 && (
+                  <>
+                    <div className="card-icon">💈</div>
+                    <div className="card-title">Στοιχεία Κουρείου</div>
+                    <div className="card-sub">Πού βρίσκεται το κουρείο σου;</div>
+                    <div className="field">
+                      <label>Όνομα Κουρείου</label>
+                      <input type="text" value={shopName} onChange={e=>setShopName(e.target.value)} placeholder="π.χ. Barbershop Νίκος"/>
+                    </div>
+                    <div className="field-row">
+                      <div className="field">
+                        <label>Τηλέφωνο</label>
+                        <input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="69XXXXXXXX"/>
+                      </div>
+                      <div className="field">
+                        <label>Πόλη</label>
+                        <input type="text" value={city} onChange={e=>setCity(e.target.value)} placeholder="π.χ. Αθήνα"/>
+                      </div>
+                    </div>
+                    <div className="field-row">
+                      <div className="field">
+                        <label>Οδός</label>
+                        <input type="text" value={street} onChange={e=>setStreet(e.target.value)} placeholder="π.χ. Σταδίου"/>
+                      </div>
+                      <div className="field">
+                        <label>Αριθμός</label>
+                        <input type="text" value={streetNumber} onChange={e=>setStreetNumber(e.target.value)} placeholder="π.χ. 15"/>
+                      </div>
+                    </div>
+                    <div className="field-row">
+                      <div className="field">
+                        <label>ΤΚ</label>
+                        <input type="text" value={postalCode} onChange={e=>setPostalCode(e.target.value)} placeholder="π.χ. 10431"/>
+                      </div>
+                      <div className="field">
+                        <label>Αριθμός Barbers</label>
+                        <select value={numBarbers} onChange={e=>setNumBarbers(+e.target.value)}>
+                          <option value={1}>1 Barber (Freemium/Solo)</option>
+                          <option value={2}>2 Barbers (Duo)</option>
+                          <option value={3}>3+ Barbers (Team)</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="field">
+                      <label>Logo (προαιρετικό)</label>
+                      {logoPreview ? (
+                        <div style={{textAlign:"center",marginBottom:8}}>
+                          <img src={logoPreview} className="logo-preview" alt="logo"/>
+                          <button className="btn" style={{fontSize:12,padding:"6px 14px"}}
+                            onClick={()=>{setLogoFile(null);setLogoPreview('')}}>Αλλαγή</button>
+                        </div>
+                      ) : (
+                        <label className="logo-upload" style={{cursor:"pointer"}}>
+                          <div style={{fontSize:32,marginBottom:8}}>🖼️</div>
+                          <div style={{fontSize:13,color:"var(--muted2)"}}>Ανέβασε το logo σου</div>
+                          <input type="file" accept="image/*" style={{display:"none"}}
+                            onChange={e=>{
+                              const f=e.target.files?.[0]
+                              if(f){setLogoFile(f);setLogoPreview(URL.createObjectURL(f))}
+                            }}/>
+                        </label>
+                      )}
+                    </div>
+                  </>
+                )}
 
-            <label className="block border-2 border-dashed border-white/10 rounded-2xl p-8 text-center cursor-pointer hover:border-[#3b7bff] hover:bg-[#3b7bff]/10 mb-4">
-              <div className="text-2xl mb-2">⬆️</div>
-              <div className="text-sm font-bold">Πάτησε για μεταφόρτωση</div>
-              <div className="text-xs text-[#8a97ac] mt-1"> PNG έως 6 φωτογραφίες</div>
-              <input type="file" accept="image/*" multiple onChange={onPhotosSelect} className="hidden" />
-            </label>
+                {/* STEP 3 — SERVICES */}
+                {step === 3 && (
+                  <>
+                    <div className="card-icon">✂️</div>
+                    <div className="card-title">Υπηρεσίες</div>
+                    <div className="card-sub">Ποιες υπηρεσίες προσφέρεις και σε τι τιμή;</div>
+                    <div className="svc-head"><span>Υπηρεσία</span><span>Τιμή €</span><span/></div>
+                    {services.map((s,i) => (
+                      <div key={i} className="svc-row">
+                        <input className="svc-inp" value={s.name} placeholder="π.χ. Κούρεμα"
+                          onChange={e=>{const n=[...services];n[i].name=e.target.value;setServices(n)}}/>
+                        <input className="svc-inp gold" type="number" value={s.price}
+                          onChange={e=>{const n=[...services];n[i].price=+e.target.value;setServices(n)}}/>
+                        <button className="del-btn" onClick={()=>setServices(p=>p.filter((_,j)=>j!==i))}>✕</button>
+                      </div>
+                    ))}
+                    <button className="add-btn" onClick={()=>setServices(p=>[...p,{name:"",price:15}])}>
+                      + Προσθήκη Υπηρεσίας
+                    </button>
+                  </>
+                )}
 
-            <div className="grid grid-cols-3 gap-2">
-              {photoPreviews.map((url, i) => (
-                <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-white/10">
-                  <img src={url} className="w-full h-full object-cover" />
-                  <button type="button" onClick={() => removePhoto(i)} className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-[10px]">✕</button>
+                {/* STEP 4 — HOURS */}
+                {step === 4 && (
+                  <>
+                    <div className="card-icon">🕒</div>
+                    <div className="card-title">Ωράριο Λειτουργίας</div>
+                    <div className="card-sub">Πότε είσαι ανοιχτός; Μπορείς να το αλλάξεις αργότερα.</div>
+                    {hours.map((h,i) => (
+                      <div key={i} className={`hour-row ${h.active?"":"off"}`}>
+                        <span className="hour-day">{DAY_LABELS[i]}</span>
+                        {h.active ? (
+                          <>
+                            <input type="time" className="hour-inp" value={h.open}
+                              onChange={e=>{const n=[...hours];n[i].open=e.target.value;setHours(n)}}/>
+                            <span className="hour-sep">–</span>
+                            <input type="time" className="hour-inp" value={h.close}
+                              onChange={e=>{const n=[...hours];n[i].close=e.target.value;setHours(n)}}/>
+                          </>
+                        ) : (
+                          <span className="hour-closed">Κλειστά</span>
+                        )}
+                        <div className={`toggle ${h.active?"on":""}`} onClick={()=>{
+                          const n=[...hours]
+                          n[i].active=!n[i].active
+                          if(n[i].active&&!n[i].open){n[i].open="09:00";n[i].close="19:00"}
+                          setHours(n)
+                        }}/>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {/* STEP 5 — TEAM (μόνο αν numBarbers > 1) */}
+                {step === 5 && hasBarberStep && (
+                  <>
+                    <div className="card-icon">👥</div>
+                    <div className="card-title">Ομάδα Barbers</div>
+                    <div className="card-sub">Πρόσθεσε τα ονόματα των barbers σου.</div>
+
+                    <div className="limit-badge">
+                      👥 Μέγιστο {maxBarbers} barbers στο πλάνο σου
+                    </div>
+
+                    <div className="team-head"><span>Όνομα</span><span>Ρόλος</span><span/></div>
+                    {barbers.map((b,i) => (
+                      <div key={i} className="team-row">
+                        <input className="svc-inp" value={b.name} placeholder="π.χ. Νίκος Π."
+                          onChange={e=>{const n=[...barbers];n[i].name=e.target.value;setBarbers(n)}}/>
+                        <input className="svc-inp" value={b.role} placeholder="Barber"
+                          onChange={e=>{const n=[...barbers];n[i].role=e.target.value;setBarbers(n)}}/>
+                        {barbers.length > 1 && (
+                          <button className="del-btn" onClick={()=>setBarbers(p=>p.filter((_,j)=>j!==i))}>✕</button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      className="add-btn"
+                      disabled={barbers.length >= maxBarbers}
+                      onClick={()=>{
+                        if(barbers.length < maxBarbers)
+                          setBarbers(p=>[...p,{name:"",role:"Barber"}])
+                      }}>
+                      {barbers.length >= maxBarbers
+                        ? `✕ Έχεις φτάσει το όριο (${maxBarbers} barbers)`
+                        : `+ Προσθήκη Barber (${barbers.length}/${maxBarbers})`}
+                    </button>
+                  </>
+                )}
+
+                <div className="actions">
+                  {step > 1 && (
+                    <button className="btn ghost" onClick={back}>← Πίσω</button>
+                  )}
+                  <button className="btn primary" disabled={!canNext()||loading} onClick={next}>
+                    {loading?"⏳ Δημιουργία...":step===TOTAL_STEPS?"Ολοκλήρωση 🚀":"Επόμενο →"}
+                  </button>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ---------------- STEP 6 — review ---------------- */}
-        {step === 6 && (
-          <div>
-            <div className="w-16 h-16 rounded-2xl mb-4 bg-gradient-to-br from-[#3b7bff]/15 to-[#d4af37]/15 border border-white/10 flex items-center justify-center text-2xl">
-              🚀
-            </div>
-            <h1 className="text-2xl font-extrabold mb-2">Όλα Έτοιμα!</h1>
-            <p className="text-[#8a97ac] text-sm mb-6 leading-relaxed">Έλεγξε τα στοιχεία σου πριν δημοσιεύσεις το προφίλ σου.</p>
-
-            <div className="bg-[#0b1424] border border-white/10 rounded-2xl p-4 mb-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Κατάστημα</div>
-              <div className="text-sm font-bold">{shopName || '—'}</div>
-              <div className="text-xs text-[#8a97ac] mt-0.5">{street} {streetNumber}, {postalCode} {city}</div>
-            </div>
-            <div className="bg-[#0b1424] border border-white/10 rounded-2xl p-4 mb-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Ομάδα</div>
-              <div className="text-sm font-bold">{teamSize} {teamSize === 1 ? 'barber' : 'barbers'}</div>
-            </div>
-            <div className="bg-[#0b1424] border border-white/10 rounded-2xl p-4 mb-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Υπηρεσίες</div>
-              <div className="text-sm font-bold">{services.length} υπηρεσίες</div>
-            </div>
-            <div className="bg-[#0b1424] border border-white/10 rounded-2xl p-4 mb-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Ωράριο</div>
-              <div className="text-sm font-bold">Ανοιχτά {hours.filter((h) => h.active).length} μέρες/εβδομάδα</div>
-            </div>
-            <div className="bg-[#0b1424] border border-white/10 rounded-2xl p-4 mb-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-[#8a97ac] mb-1.5">Φωτογραφίες</div>
-              <div className="text-sm font-bold">{photoFiles.length} φωτογραφίες</div>
-            </div>
-          </div>
-        )}
-
-        {/* ---------------- SUCCESS ---------------- */}
-        {step > TOTAL_STEPS && (
-          <div className="text-center pt-8">
-            <div className="w-24 h-24 mx-auto mb-5 rounded-full bg-[#3ecf8e] flex items-center justify-center text-4xl text-[#070c16]">
-              ✓
-            </div>
-            <h1 className="text-2xl font-extrabold mb-2">Το προφίλ σου είναι live! 🎉</h1>
-            <p className="text-[#8a97ac] text-sm mb-6">Το {shopName} είναι τώρα ορατό στους πελάτες.</p>
-
-            <div className="bg-gradient-to-br from-[#3b7bff]/10 to-[#d4af37]/10 border border-[#3b7bff]/25 rounded-2xl p-5 text-left">
-              <div className="text-sm font-bold mb-1">🔗 Το link κράτησής σου</div>
-              <div className="text-xs text-[#8a97ac] mb-4">Βάλε το στο bio του Instagram — οδηγεί κατευθείαν στη σελίδα κράτησης.</div>
-              <div className="flex gap-2 items-center bg-[#0b1424] border border-white/10 rounded-xl px-3 py-3 mb-3">
-                <span className="text-sm font-bold text-[#cfe0ff] flex-1 truncate">{finalLink}</span>
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(`https://${finalLink}`)}
-                  className="px-3 py-2 rounded-lg bg-[#3b7bff] text-white text-xs font-bold"
-                >
-                  Αντιγραφή
+              </>
+            ) : (
+              /* SUCCESS */
+              <div className="success">
+                <div className="check-wrap">✓</div>
+                <h2>Καλώς ήρθες στο BarberBook! 💈</h2>
+                <p>Το κουρείο σου δημιουργήθηκε επιτυχώς και είναι τώρα ζωντανό!</p>
+                <div className="success-card">
+                  <div className="sc-row"><span className="sc-label">Κουρείο</span><span className="sc-val">{shopName}</span></div>
+                  <div className="sc-row"><span className="sc-label">Πόλη</span><span className="sc-val">{city}</span></div>
+                  <div className="sc-row"><span className="sc-label">Barbers</span><span className="sc-val">{numBarbers === 1 ? '1' : numBarbers === 2 ? '2' : '3+'}</span></div>
+                  <div className="sc-row"><span className="sc-label">Υπηρεσίες</span><span className="sc-val">{services.length}</span></div>
+                </div>
+                <button className="btn primary" style={{width:"100%"}}
+                  onClick={()=>window.location.href="/dashboard"}>
+                  Πήγαινε στο Dashboard →
                 </button>
               </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => router.push('/dashboard')}
-              className="w-full mt-6 py-3.5 rounded-xl bg-gradient-to-br from-[#3b7bff] to-[#2a5fd9] font-bold"
-            >
-              Μετάβαση στο Dashboard →
-            </button>
-          </div>
-        )}
-      </div>
-  
-
-      {/* ---------------- bottom bar ---------------- */}
-      {step <= TOTAL_STEPS && (
-        <div className="fixed bottom-0 left-0 right-0 bg-[#0b1424] border-t border-white/10 px-5 py-3.5">
-          <div className="max-w-lg mx-auto flex gap-2.5">
-            {step > 1 && (
-              <button onClick={back} className="px-5 py-3.5 rounded-xl border border-white/10 bg-[#101c33] font-bold text-sm">
-                ← Πίσω
-              </button>
             )}
-            <button
-              onClick={next}
-              disabled={!canNext() || loading}
-              className="flex-1 py-3.5 rounded-xl bg-gradient-to-br from-[#3b7bff] to-[#2a5fd9] font-bold text-sm disabled:opacity-40"
-            >
-              {loading ? 'Δημοσίευση...' : step === TOTAL_STEPS ? 'Δημοσίευση Καταστήματος 🚀' : 'Συνέχεια →'}
-            </button>
           </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    </>
+  )
 }

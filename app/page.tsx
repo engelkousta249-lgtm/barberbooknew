@@ -558,6 +558,12 @@ const newStatic: any[] = []
           .nav-links{display:none;}
           .hamburger{display:flex;}
           .hamburger{display:flex;}
+          .hamburger{display:flex;}
+  .nav-right .btn-ghost,
+  .nav-right .btn-primary,
+  .nav-right > span{display:none;}
+  .hamburger{padding:0.4rem 0.5rem; gap:4px;}
+  .hamburger span{width:16px;
   .nav-auth-btns{display:none;}
           .hero-stats{gap:1.5rem;}
           .feat-grid{grid-template-columns:1fr;}

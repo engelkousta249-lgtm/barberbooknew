@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, ChangeEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -9,12 +8,12 @@ const supabase = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjZmtoZGppcmFnYmxzaXFldGVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2OTY0ODYsImV4cCI6MjA5NzI3MjQ4Nn0.EkmgRuYzrvF0A_pgT9vaOouMRKeQ2kasPZxpoIuCgeE'
 )
 
-const DAY_LABELS = ['Δευ', 'Τρί', 'Τετ', 'Πέμ', 'Παρ', 'Σάβ', 'Κυρ']
+const DAY_LABELS = ['Δευ','Τρί','Τετ','Πέμ','Παρ','Σάβ','Κυρ']
 
-function getMaxBarbers(numBarbers: number) {
-  if (numBarbers <= 1) return 1      // Freemium/Solo
-  if (numBarbers === 2) return 2     // Duo
-  return 10                          // Team (3+)
+function getPlanLimits(plan: string) {
+  if (plan === 'duo') return { maxBarbers: 2, label: 'Duo' }
+  if (plan === 'team') return { maxBarbers: 10, label: 'Team' }
+  return { maxBarbers: 1, label: plan === 'solo' ? 'Solo' : 'Freemium' }
 }
 
 type Service = { name: string; price: number }
@@ -22,16 +21,17 @@ type Hour = { active: boolean; open: string; close: string }
 type Barber = { name: string; role: string }
 
 export default function OnboardingPage() {
-  const router = useRouter()
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [finalLink, setFinalLink] = useState('')
+  const [done, setDone] = useState(false)
+  const [shopLink, setShopLink] = useState('')
 
   // Step 1 — Account
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
+  const [plan, setPlan] = useState('freemium')
 
   // Step 2 — Shop Info
   const [shopName, setShopName] = useState('')
@@ -40,8 +40,7 @@ export default function OnboardingPage() {
   const [street, setStreet] = useState('')
   const [streetNumber, setStreetNumber] = useState('')
   const [postalCode, setPostalCode] = useState('')
-  const [numBarbers, setNumBarbers] = useState(1)
-  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoFile, setLogoFile] = useState<File|null>(null)
   const [logoPreview, setLogoPreview] = useState('')
 
   // Step 3 — Services
@@ -61,12 +60,13 @@ export default function OnboardingPage() {
     { active: false, open: '', close: '' },
   ])
 
-  // Step 5 — Barbers (μόνο αν numBarbers > 1)
+  // Step 5 — Gallery + Barbers
+  const [photoFiles, setPhotoFiles] = useState<File[]>([])
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [barbers, setBarbers] = useState<Barber[]>([{ name: '', role: 'Barber' }])
 
-  const maxBarbers = getMaxBarbers(numBarbers)
-  const hasBarberStep = numBarbers > 1
-  const TOTAL_STEPS = hasBarberStep ? 5 : 4
+  const { maxBarbers } = getPlanLimits(plan)
+  const TOTAL_STEPS = 5
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -82,11 +82,11 @@ export default function OnboardingPage() {
     if (step === 2) return shopName.trim() !== '' && phone.trim() !== '' && city.trim() !== ''
     if (step === 3) return services.length > 0 && services.every(s => s.name.trim() !== '')
     if (step === 4) return true
-    if (step === 5) return barbers.length > 0 && barbers.every(b => b.name.trim() !== '')
+    if (step === 5) return true
     return false
   }
 
-  async function uploadToBucket(file: File, path: string) {
+  async function uploadFile(file: File, path: string) {
     const { error: upErr } = await supabase.storage.from('shop-media').upload(path, file, { upsert: true })
     if (upErr) throw upErr
     const { data } = supabase.storage.from('shop-media').getPublicUrl(path)
@@ -115,7 +115,14 @@ export default function OnboardingPage() {
       // Upload logo
       let logoUrl: string | null = null
       if (logoFile) {
-        logoUrl = await uploadToBucket(logoFile, `${userId}/logo-${Date.now()}`)
+        logoUrl = await uploadFile(logoFile, `${userId}/logo-${Date.now()}`)
+      }
+
+      // Upload gallery photos
+      const photoUrls: string[] = []
+      for (let i = 0; i < photoFiles.length; i++) {
+        const url = await uploadFile(photoFiles[i], `${userId}/photo-${Date.now()}-${i}`)
+        photoUrls.push(url)
       }
 
       // Δημιουργία barbershop
@@ -129,53 +136,50 @@ export default function OnboardingPage() {
           city,
           email: existingUser?.email || email,
           logo_url: logoUrl,
-          num_barbers: numBarbers,
+          num_barbers: maxBarbers,
+          plan,
           description: '',
           rating: 5.0,
         })
         .select().single()
       if (shopErr) { setError('Σφάλμα κουρείου: ' + shopErr.message); setLoading(false); return }
 
-      // Αποθήκευση services
+      // Services
       if (services.length > 0) {
         await supabase.from('services').insert(
-          services.map(s => ({
-            shop_id: shop.id,
-            name: s.name,
-            price: s.price,
-            duration_minutes: 30,
-          }))
+          services.map(s => ({ shop_id: shop.id, name: s.name, price: s.price, duration_minutes: 30 }))
         )
       }
 
-      // Αποθήκευση working hours
+      // Working hours
       await supabase.from('working_hours').insert(
         hours.map((h, i) => ({
-          shop_id: shop.id,
-          day_of_week: i,
+          shop_id: shop.id, day_of_week: i,
           is_active: h.active,
           open_time: h.active ? h.open : null,
           close_time: h.active ? h.close : null,
         }))
       )
 
-      // Αποθήκευση barbers (αν > 1)
-      if (hasBarberStep && barbers.length > 0) {
+      // Gallery photos
+      if (photoUrls.length > 0) {
+        await supabase.from('portfolio_photos').insert(
+          photoUrls.map((url, i) => ({ shop_id: shop.id, url, is_cover: i === 0 }))
+        )
+      }
+
+      // Barbers (αν maxBarbers > 1)
+      if (maxBarbers > 1 && barbers.filter(b => b.name.trim()).length > 0) {
         await supabase.from('barbers').insert(
           barbers.filter(b => b.name.trim()).map(b => ({
-            shop_id: shop.id,
-            name: b.name,
-            role: b.role || 'Barber',
+            shop_id: shop.id, name: b.name, role: b.role || 'Barber'
           }))
         )
       }
 
-      // Update profile → owner
+      // Update profile
       await supabase.from('profiles').upsert({
-        id: userId,
-        full_name: shopName,
-        role: 'owner',
-        barbershop_id: shop.id,
+        id: userId, full_name: shopName, role: 'owner', barbershop_id: shop.id,
       })
 
       // Welcome email
@@ -189,34 +193,17 @@ export default function OnboardingPage() {
         })
       })
 
-      setFinalLink(`barberbook.gr/${shopName.toLowerCase()}`)
-      setStep(TOTAL_STEPS + 1)
+      setShopLink(`${window.location.origin}/barbershops/${shop.id}`)
+      setDone(true)
     } catch (e: any) {
       setError('Κάτι πήγε στραβά: ' + e.message)
     }
     setLoading(false)
   }
 
-  function next() {
-    if (!canNext()) return
-    if (step === TOTAL_STEPS) handleFinish()
-    else setStep(s => s + 1)
-  }
-
-  function back() {
-    setError('')
-    setStep(s => Math.max(1, s - 1))
-  }
-
-  const stepsDone = step > TOTAL_STEPS
-
-  const stepLabels = [
-    'Λογαριασμός',
-    'Κατάστημα',
-    'Υπηρεσίες',
-    'Ωράριο',
-    ...(hasBarberStep ? ['Ομάδα'] : []),
-  ]
+  const stepIcons = ['👤','💈','✂️','🕒','🖼️']
+  const stepLabels = ['Λογαριασμός','Κατάστημα','Υπηρεσίες','Ωράριο','Φωτογραφίες & Ομάδα']
+  const stepDescs = ['Στοιχεία εισόδου','Πληροφορίες καταστήματος','Τιμοκατάλογος','Ώρες λειτουργίας','Gallery & Barbers']
 
   return (
     <>
@@ -240,142 +227,122 @@ export default function OnboardingPage() {
           background:rgba(10,15,30,.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);}
         .brand{font-size:20px;font-weight:800;background:linear-gradient(135deg,var(--blue),var(--gold));
           -webkit-background-clip:text;-webkit-text-fill-color:transparent;cursor:pointer;}
-        .nav-back{display:flex;align-items:center;gap:6px;color:var(--muted2);font-size:13px;
-          font-weight:500;cursor:pointer;background:none;border:none;transition:color .2s;}
+        .nav-back{color:var(--muted2);font-size:13px;font-weight:500;cursor:pointer;
+          background:none;border:none;transition:color .2s;}
         .nav-back:hover{color:var(--text);}
         .main{min-height:100vh;padding:80px 24px 48px;display:flex;align-items:flex-start;justify-content:center;}
         .container{width:100%;max-width:960px;display:grid;grid-template-columns:280px 1fr;gap:24px;align-items:start;}
-        .sidebar{background:var(--card);border:1px solid var(--border);border-radius:20px;
-          padding:28px 20px;position:sticky;top:80px;}
-        .sidebar-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
-          color:var(--muted);margin-bottom:20px;}
-        .step-item{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:12px;
-          margin-bottom:6px;border:1px solid transparent;transition:all .2s;}
+        .sidebar{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 20px;position:sticky;top:80px;}
+        .sidebar-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:20px;}
+        .step-item{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:12px;margin-bottom:6px;border:1px solid transparent;transition:all .2s;}
         .step-item.active{background:var(--blue-soft);border-color:rgba(59,130,246,.25);}
-        .step-item.done{opacity:.7;}
-        .step-icon{width:38px;height:38px;border-radius:10px;flex-shrink:0;display:flex;
-          align-items:center;justify-content:center;font-size:18px;background:var(--card2);
-          border:1px solid var(--border);transition:all .2s;}
+        .step-icon{width:38px;height:38px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--card2);border:1px solid var(--border);}
         .step-item.active .step-icon{background:var(--blue-soft);border-color:rgba(59,130,246,.3);}
         .step-item.done .step-icon{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.25);}
-        .step-info{min-width:0;}
         .step-name{font-size:13.5px;font-weight:700;color:var(--text);}
         .step-item.active .step-name{color:#93c5fd;}
         .step-item.done .step-name{color:var(--green);}
         .step-desc{font-size:11px;color:var(--muted);margin-top:2px;}
-        .step-check{margin-left:auto;font-size:14px;color:var(--green);flex-shrink:0;}
         .progress-wrap{margin-top:24px;padding-top:20px;border-top:1px solid var(--border);}
         .progress-label{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:8px;}
         .progress-bar{height:4px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;}
-        .progress-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--gold));
-          border-radius:4px;transition:width .4s ease;}
-        .card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:32px;
-          animation:fadeIn .3s ease;}
+        .progress-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--gold));border-radius:4px;transition:width .4s ease;}
+        .card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:32px;animation:fadeIn .3s ease;}
         @keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-        .card-icon{width:48px;height:48px;border-radius:14px;margin-bottom:16px;display:flex;
-          align-items:center;justify-content:center;font-size:24px;
-          background:var(--blue-soft);border:1px solid rgba(59,130,246,.2);}
+        .card-icon{width:48px;height:48px;border-radius:14px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;font-size:24px;background:var(--blue-soft);border:1px solid rgba(59,130,246,.2);}
         .card-title{font-size:20px;font-weight:700;margin-bottom:6px;}
         .card-sub{font-size:13.5px;color:var(--muted2);line-height:1.6;margin-bottom:24px;}
         .field{margin-bottom:16px;}
-        .field label{display:block;font-size:11.5px;font-weight:600;color:var(--muted2);
-          text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;}
-        .field input,.field select{width:100%;background:var(--card2);border:1px solid var(--border);
-          border-radius:10px;padding:12px 14px;font-size:14px;color:var(--text);outline:none;transition:all .2s;}
+        .field label{display:block;font-size:11.5px;font-weight:600;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;}
+        .field input,.field select{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:14px;color:var(--text);outline:none;transition:all .2s;}
         .field input:focus,.field select:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft);}
         .field input::placeholder{color:var(--muted);}
-        .field select option{background:var(--card2);}
         .field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-        .field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
         .pass-wrap{position:relative;}
         .pass-wrap input{padding-right:44px;}
-        .pass-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);
-          background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px;}
-        .error-box{display:flex;align-items:center;gap:10px;
-          background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);
-          border-radius:10px;padding:12px 14px;font-size:13px;color:var(--red);margin-bottom:16px;}
-        .svc-head{display:grid;grid-template-columns:1fr 80px 32px;gap:8px;
-          font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;
-          font-weight:600;margin-bottom:10px;padding:0 2px;}
+        .pass-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px;}
+        .error-box{display:flex;align-items:center;gap:10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--red);margin-bottom:16px;}
+        .plan-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:8px;}
+        .plan-card{border:1.5px solid var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:all .2s;background:var(--card2);}
+        .plan-card:hover{border-color:rgba(59,130,246,.4);}
+        .plan-card.selected{border-color:var(--blue);background:var(--blue-soft);}
+        .plan-card.popular{border-color:var(--gold);}
+        .plan-card.popular.selected{background:rgba(245,158,11,.1);}
+        .plan-name{font-size:15px;font-weight:800;margin-bottom:4px;}
+        .plan-price{font-size:20px;font-weight:900;color:var(--blue);font-family:'Outfit',sans-serif;}
+        .plan-card.popular .plan-price{color:var(--gold);}
+        .plan-desc{font-size:11.5px;color:var(--muted);margin-top:6px;}
+        .plan-badge{display:inline-block;padding:2px 8px;background:rgba(245,158,11,.15);color:var(--gold);border-radius:20px;font-size:10px;font-weight:700;margin-bottom:6px;}
+        .logo-upload{border:2px dashed rgba(59,130,246,.25);border-radius:14px;padding:24px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(59,130,246,.04);display:block;}
+        .logo-upload:hover{border-color:var(--blue);background:var(--blue-soft);}
+        .logo-preview{width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--blue);margin:0 auto 12px;display:block;}
+        .svc-head{display:grid;grid-template-columns:1fr 80px 32px;gap:8px;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:10px;padding:0 2px;}
         .svc-row{display:grid;grid-template-columns:1fr 80px 32px;gap:8px;align-items:center;margin-bottom:8px;}
-        .svc-inp{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:9px;
-          padding:9px 11px;font-size:13.5px;color:var(--text);outline:none;transition:all .2s;}
+        .svc-inp{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-size:13.5px;color:var(--text);outline:none;transition:all .2s;}
         .svc-inp:focus{border-color:var(--blue);}
         .svc-inp.gold{color:var(--gold);font-weight:700;}
-        .del-btn{width:32px;height:32px;border-radius:8px;background:rgba(239,68,68,.08);
-          border:1px solid rgba(239,68,68,.15);color:var(--red);cursor:pointer;
-          display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .2s;}
+        .del-btn{width:32px;height:32px;border-radius:8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);color:var(--red);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .2s;}
         .del-btn:hover{background:rgba(239,68,68,.15);}
-        .add-btn{width:100%;padding:10px;border-radius:10px;
-          border:1.5px dashed rgba(59,130,246,.25);background:rgba(59,130,246,.04);
-          color:#60a5fa;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;transition:all .2s;}
+        .add-btn{width:100%;padding:10px;border-radius:10px;border:1.5px dashed rgba(59,130,246,.25);background:rgba(59,130,246,.04);color:#60a5fa;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;transition:all .2s;}
         .add-btn:hover{border-color:var(--blue);background:var(--blue-soft);}
         .add-btn:disabled{opacity:.4;cursor:not-allowed;}
-        .hour-row{display:flex;align-items:center;gap:12px;padding:11px 14px;
-          background:var(--card2);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;}
+        .hour-row{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--card2);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;}
         .hour-row.off{opacity:.45;}
         .hour-day{font-size:13px;font-weight:700;width:34px;flex-shrink:0;}
-        .hour-inp{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;
-          padding:7px 9px;font-size:12.5px;color:var(--text);font-family:'Inter',sans-serif;outline:none;}
+        .hour-inp{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:12.5px;color:var(--text);font-family:'Inter',sans-serif;outline:none;}
         .hour-inp:focus{border-color:var(--blue);}
         .hour-sep{color:var(--muted);font-size:12px;}
         .hour-closed{font-size:12px;color:var(--muted);flex:1;}
-        .toggle{width:40px;height:22px;border-radius:999px;background:rgba(255,255,255,.08);
-          border:1px solid var(--border);position:relative;cursor:pointer;flex-shrink:0;
-          margin-left:auto;transition:all .25s;}
-        .toggle::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;
-          border-radius:50%;background:var(--muted);transition:all .25s;}
+        .toggle{width:40px;height:22px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--border);position:relative;cursor:pointer;flex-shrink:0;margin-left:auto;transition:all .25s;}
+        .toggle::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:all .25s;}
         .toggle.on{background:rgba(59,130,246,.25);border-color:rgba(59,130,246,.4);}
         .toggle.on::after{left:21px;background:var(--blue);}
-        .logo-upload{border:2px dashed rgba(59,130,246,.25);border-radius:14px;padding:24px;
-          text-align:center;cursor:pointer;transition:all .2s;background:rgba(59,130,246,.04);}
-        .logo-upload:hover{border-color:var(--blue);background:var(--blue-soft);}
-        .logo-preview{width:80px;height:80px;border-radius:50%;object-fit:cover;
-          border:3px solid var(--blue);margin:0 auto 12px;display:block;}
-        .team-head{display:grid;grid-template-columns:1fr 1fr 32px;gap:8px;
-          font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;
-          font-weight:600;margin-bottom:10px;padding:0 2px;}
+        .gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;}
+        .gallery-item{aspect-ratio:1;border-radius:12px;overflow:hidden;position:relative;border:1px solid var(--border);}
+        .gallery-item img{width:100%;height:100%;object-fit:cover;display:block;}
+        .gallery-del{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;background:rgba(239,68,68,.85);border:none;color:#fff;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;}
+        .gallery-add{aspect-ratio:1;border-radius:12px;border:2px dashed rgba(59,130,246,.25);background:rgba(59,130,246,.04);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;color:#60a5fa;font-size:12px;font-weight:600;gap:6px;}
+        .gallery-add:hover{border-color:var(--blue);background:var(--blue-soft);}
+        .gallery-add .plus{font-size:24px;}
+        .team-section{margin-top:24px;padding-top:24px;border-top:1px solid var(--border);}
+        .team-head{display:grid;grid-template-columns:1fr 1fr 32px;gap:8px;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:10px;padding:0 2px;}
         .team-row{display:grid;grid-template-columns:1fr 1fr 32px;gap:8px;align-items:center;margin-bottom:8px;}
-        .limit-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;
-          background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);
-          border-radius:999px;font-size:12px;font-weight:600;color:var(--gold);margin-bottom:16px;}
+        .limit-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:999px;font-size:12px;font-weight:600;color:var(--gold);margin-bottom:16px;}
+        .locked-box{background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.15);border-radius:12px;padding:20px;text-align:center;}
+        .locked-box p{font-size:13px;color:var(--muted2);line-height:1.7;}
         .actions{display:flex;gap:10px;margin-top:28px;}
-        .btn{padding:13px 24px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;
-          transition:all .2s;border:1px solid var(--border);background:var(--card2);color:var(--text);}
+        .btn{padding:13px 24px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;border:1px solid var(--border);background:var(--card2);color:var(--text);}
         .btn:hover{border-color:var(--blue);}
-        .btn.primary{background:linear-gradient(135deg,var(--blue),#1d4ed8);border:none;color:#fff;
-          flex:1;box-shadow:0 8px 24px -8px var(--blue-glow);}
+        .btn.primary{background:linear-gradient(135deg,var(--blue),#1d4ed8);border:none;color:#fff;flex:1;box-shadow:0 8px 24px -8px var(--blue-glow);}
         .btn.primary:hover{filter:brightness(1.08);transform:translateY(-1px);}
         .btn.primary:disabled{opacity:.4;cursor:not-allowed;transform:none;filter:none;}
         .btn.ghost{background:none;flex-shrink:0;}
         .success{text-align:center;padding:16px 0;}
-        .check-wrap{width:80px;height:80px;border-radius:50%;
-          background:linear-gradient(135deg,var(--green),#059669);
-          display:flex;align-items:center;justify-content:center;font-size:36px;
-          margin:0 auto 24px;box-shadow:0 0 0 12px rgba(16,185,129,.1),0 0 40px rgba(16,185,129,.25);
-          animation:popIn .5s cubic-bezier(.34,1.56,.64,1) both;}
+        .check-wrap{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--green),#059669);display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 24px;box-shadow:0 0 0 12px rgba(16,185,129,.1),0 0 40px rgba(16,185,129,.25);animation:popIn .5s cubic-bezier(.34,1.56,.64,1) both;}
         @keyframes popIn{0%{opacity:0;transform:scale(0);}70%{transform:scale(1.1);}100%{opacity:1;transform:scale(1);}}
         .success h2{font-size:22px;font-weight:700;margin-bottom:10px;}
         .success p{color:var(--muted2);font-size:14px;line-height:1.7;margin-bottom:24px;}
-        .success-card{background:var(--card2);border:1px solid var(--border);border-radius:14px;
-          padding:18px;margin-bottom:24px;text-align:left;}
-        .sc-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
-          border-bottom:1px solid var(--border);font-size:13.5px;}
+        .success-card{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px;text-align:left;}
+        .sc-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:13.5px;}
         .sc-row:last-child{border-bottom:none;}
         .sc-label{color:var(--muted2);}
         .sc-val{font-weight:700;}
+        .link-box{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:12px;padding:16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;}
+        .link-box input{flex:1;background:none;border:none;color:var(--blue);font-size:13px;font-weight:600;outline:none;cursor:text;}
+        .copy-btn{padding:8px 14px;background:var(--blue);border:none;color:#fff;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
         @media(max-width:768px){
           .container{grid-template-columns:1fr;}
           .sidebar{display:none;}
           .card{padding:24px 20px;}
-          .field-row,.field-row3{grid-template-columns:1fr;}
-          .svc-row,.svc-head{grid-template-columns:1fr 68px 30px;}
+          .field-row{grid-template-columns:1fr;}
+          .plan-grid{grid-template-columns:1fr 1fr;}
+          .gallery-grid{grid-template-columns:repeat(3,1fr);}
           .team-row,.team-head{grid-template-columns:1fr 30px;}
         }
       `}</style>
 
       <nav className="nav">
-        <div className="brand">BarberBook</div>
+        <div className="brand" onClick={() => window.location.href="/"}>BarberBook</div>
         <button className="nav-back" onClick={() => window.location.href="/"}>← Πίσω</button>
       </nav>
 
@@ -383,46 +350,68 @@ export default function OnboardingPage() {
         <div className="container">
 
           {/* SIDEBAR */}
-          <div className="sidebar">
-            <div className="sidebar-title">Πρόοδος Εγγραφής</div>
-            {stepLabels.map((label, i) => {
-              const icons = ['👤','💈','✂️','🕒','👥']
-              const descs = ['Στοιχεία εισόδου','Πληροφορίες καταστήματος','Τιμοκατάλογος','Ώρες λειτουργίας','Ομάδα barbers']
-              const sNum = i + 1
-              return (
-                <div key={label} className={`step-item ${step===sNum?"active":""} ${step>sNum?"done":""}`}>
-                  <div className="step-icon">{step > sNum ? "✓" : icons[i]}</div>
-                  <div className="step-info">
-                    <div className="step-name">{label}</div>
-                    <div className="step-desc">{descs[i]}</div>
+          {!done && (
+            <div className="sidebar">
+              <div className="sidebar-title">Πρόοδος Εγγραφής</div>
+              {stepLabels.map((label, i) => {
+                const sNum = i + 1
+                return (
+                  <div key={label} className={`step-item ${step===sNum?"active":""} ${step>sNum?"done":""}`}>
+                    <div className="step-icon">{step > sNum ? "✓" : stepIcons[i]}</div>
+                    <div>
+                      <div className="step-name">{label}</div>
+                      <div className="step-desc">{stepDescs[i]}</div>
+                    </div>
+                    {step > sNum && <span style={{marginLeft:"auto",color:"var(--green)"}}>✓</span>}
                   </div>
-                  {step > sNum && <span className="step-check">✓</span>}
+                )
+              })}
+              <div className="progress-wrap">
+                <div className="progress-label">
+                  <span>Ολοκλήρωση</span>
+                  <span>{Math.round(((step-1)/TOTAL_STEPS)*100)}%</span>
                 </div>
-              )
-            })}
-            <div className="progress-wrap">
-              <div className="progress-label">
-                <span>Ολοκλήρωση</span>
-                <span>{Math.round(((step-1)/TOTAL_STEPS)*100)}%</span>
-              </div>
-              <div className="progress-bar">
-                <div className="progress-fill" style={{width:`${((step-1)/TOTAL_STEPS)*100}%`}}/>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{width:`${((step-1)/TOTAL_STEPS)*100}%`}}/>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* MAIN CARD */}
           <div className="card">
             {error && <div className="error-box">⚠️ {error}</div>}
 
-            {!stepsDone ? (
+            {!done ? (
               <>
-                {/* STEP 1 — ACCOUNT */}
+                {/* STEP 1 — ACCOUNT + PLAN */}
                 {step === 1 && (
                   <>
                     <div className="card-icon">👤</div>
                     <div className="card-title">Δημιούργησε Λογαριασμό</div>
-                    <div className="card-sub">Τα στοιχεία σου για να συνδέεσαι στο BarberBook</div>
+                    <div className="card-sub">Ξεκίνα με το πλάνο που σου ταιριάζει</div>
+
+                    <div className="field">
+                      <label>Επίλεξε Πλάνο</label>
+                      <div className="plan-grid">
+                        {[
+                          { key:'freemium', name:'Freemium', price:'€0', desc:'1 barber · Έως 20 κρατήσεις/μήνα', popular:false },
+                          { key:'solo', name:'Solo', price:'€20', desc:'1 barber · Απεριόριστες κρατήσεις', popular:false },
+                          { key:'duo', name:'Duo', price:'€24', desc:'2 barbers · Απεριόριστες κρατήσεις', popular:true },
+                          { key:'team', name:'Team', price:'€28', desc:'3+ barbers · Πλήρης διαχείριση', popular:false },
+                        ].map(p => (
+                          <div key={p.key}
+                            className={`plan-card ${plan===p.key?"selected":""} ${p.popular?"popular":""}`}
+                            onClick={() => setPlan(p.key)}>
+                            {p.popular && <div className="plan-badge">⭐ Πιο Δημοφιλές</div>}
+                            <div className="plan-name">{p.name}</div>
+                            <div className="plan-price">{p.price}<span style={{fontSize:12,color:"var(--muted)",fontWeight:400}}>/μήνα</span></div>
+                            <div className="plan-desc">{p.desc}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="field">
                       <label>Email</label>
                       <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="email@example.com"/>
@@ -467,33 +456,23 @@ export default function OnboardingPage() {
                       </div>
                       <div className="field">
                         <label>Αριθμός</label>
-                        <input type="text" value={streetNumber} onChange={e=>setStreetNumber(e.target.value)} placeholder="π.χ. 15"/>
+                        <input type="text" value={streetNumber} onChange={e=>setStreetNumber(e.target.value)} placeholder="15"/>
                       </div>
                     </div>
-                    <div className="field-row">
-                      <div className="field">
-                        <label>ΤΚ</label>
-                        <input type="text" value={postalCode} onChange={e=>setPostalCode(e.target.value)} placeholder="π.χ. 10431"/>
-                      </div>
-                      <div className="field">
-                        <label>Αριθμός Barbers</label>
-                        <select value={numBarbers} onChange={e=>setNumBarbers(+e.target.value)}>
-                          <option value={1}>1 Barber (Freemium/Solo)</option>
-                          <option value={2}>2 Barbers (Duo)</option>
-                          <option value={3}>3+ Barbers (Team)</option>
-                        </select>
-                      </div>
+                    <div className="field">
+                      <label>ΤΚ</label>
+                      <input type="text" value={postalCode} onChange={e=>setPostalCode(e.target.value)} placeholder="10431"/>
                     </div>
                     <div className="field">
                       <label>Logo (προαιρετικό)</label>
                       {logoPreview ? (
-                        <div style={{textAlign:"center",marginBottom:8}}>
+                        <div style={{textAlign:"center"}}>
                           <img src={logoPreview} className="logo-preview" alt="logo"/>
-                          <button className="btn" style={{fontSize:12,padding:"6px 14px"}}
+                          <button className="btn" style={{fontSize:12,padding:"6px 14px",marginTop:8}}
                             onClick={()=>{setLogoFile(null);setLogoPreview('')}}>Αλλαγή</button>
                         </div>
                       ) : (
-                        <label className="logo-upload" style={{cursor:"pointer"}}>
+                        <label className="logo-upload">
                           <div style={{fontSize:32,marginBottom:8}}>🖼️</div>
                           <div style={{fontSize:13,color:"var(--muted2)"}}>Ανέβασε το logo σου</div>
                           <input type="file" accept="image/*" style={{display:"none"}}
@@ -560,48 +539,94 @@ export default function OnboardingPage() {
                   </>
                 )}
 
-                {/* STEP 5 — TEAM (μόνο αν numBarbers > 1) */}
-                {step === 5 && hasBarberStep && (
+                {/* STEP 5 — GALLERY + BARBERS */}
+                {step === 5 && (
                   <>
-                    <div className="card-icon">👥</div>
-                    <div className="card-title">Ομάδα Barbers</div>
-                    <div className="card-sub">Πρόσθεσε τα ονόματα των barbers σου.</div>
+                    <div className="card-icon">🖼️</div>
+                    <div className="card-title">Φωτογραφίες & Ομάδα</div>
+                    <div className="card-sub">Ανέβασε φωτογραφίες του κουρείου σου (μέγιστο 6)</div>
 
-                    <div className="limit-badge">
-                      👥 Μέγιστο {maxBarbers} barbers στο πλάνο σου
+                    {/* GALLERY */}
+                    <div className="gallery-grid">
+                      {photoPreviews.map((url, i) => (
+                        <div key={i} className="gallery-item">
+                          <img src={url} alt=""/>
+                          <button className="gallery-del" onClick={() => {
+                            setPhotoPreviews(p => p.filter((_,j)=>j!==i))
+                            setPhotoFiles(p => p.filter((_,j)=>j!==i))
+                          }}>✕</button>
+                        </div>
+                      ))}
+                      {photoPreviews.length < 6 && (
+                        <label className="gallery-add">
+                          <span className="plus">+</span>
+                          <span>Φωτογραφία</span>
+                          <input type="file" accept="image/*" multiple style={{display:"none"}}
+                            onChange={e => {
+                              const files = Array.from(e.target.files || [])
+                              const remaining = 6 - photoFiles.length
+                              const toAdd = files.slice(0, remaining)
+                              setPhotoFiles(p => [...p, ...toAdd])
+                              setPhotoPreviews(p => [...p, ...toAdd.map(f => URL.createObjectURL(f))])
+                            }}/>
+                        </label>
+                      )}
                     </div>
 
-                    <div className="team-head"><span>Όνομα</span><span>Ρόλος</span><span/></div>
-                    {barbers.map((b,i) => (
-                      <div key={i} className="team-row">
-                        <input className="svc-inp" value={b.name} placeholder="π.χ. Νίκος Π."
-                          onChange={e=>{const n=[...barbers];n[i].name=e.target.value;setBarbers(n)}}/>
-                        <input className="svc-inp" value={b.role} placeholder="Barber"
-                          onChange={e=>{const n=[...barbers];n[i].role=e.target.value;setBarbers(n)}}/>
-                        {barbers.length > 1 && (
-                          <button className="del-btn" onClick={()=>setBarbers(p=>p.filter((_,j)=>j!==i))}>✕</button>
-                        )}
+                    {/* BARBERS */}
+                    <div className="team-section">
+                      <div style={{fontSize:15,fontWeight:700,marginBottom:6,fontFamily:"Outfit,sans-serif"}}>
+                        👥 Ομάδα Barbers
                       </div>
-                    ))}
-                    <button
-                      className="add-btn"
-                      disabled={barbers.length >= maxBarbers}
-                      onClick={()=>{
-                        if(barbers.length < maxBarbers)
-                          setBarbers(p=>[...p,{name:"",role:"Barber"}])
-                      }}>
-                      {barbers.length >= maxBarbers
-                        ? `✕ Έχεις φτάσει το όριο (${maxBarbers} barbers)`
-                        : `+ Προσθήκη Barber (${barbers.length}/${maxBarbers})`}
-                    </button>
+                      {maxBarbers === 1 ? (
+                        <div className="locked-box">
+                          <p>Το πλάνο <strong>{getPlanLimits(plan).label}</strong> υποστηρίζει <strong>1 barber</strong>.<br/>
+                          Αναβάθμισε σε Duo ή Team για να προσθέσεις ομάδα!</p>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="limit-badge">
+                            👥 Μέγιστο {maxBarbers} barbers ({getPlanLimits(plan).label})
+                          </div>
+                          <div className="team-head"><span>Όνομα</span><span>Ρόλος</span><span/></div>
+                          {barbers.map((b,i) => (
+                            <div key={i} className="team-row">
+                              <input className="svc-inp" value={b.name} placeholder="π.χ. Νίκος Π."
+                                onChange={e=>{const n=[...barbers];n[i].name=e.target.value;setBarbers(n)}}/>
+                              <input className="svc-inp" value={b.role} placeholder="Barber"
+                                onChange={e=>{const n=[...barbers];n[i].role=e.target.value;setBarbers(n)}}/>
+                              {barbers.length > 1 && (
+                                <button className="del-btn" onClick={()=>setBarbers(p=>p.filter((_,j)=>j!==i))}>✕</button>
+                              )}
+                            </div>
+                          ))}
+                          <button className="add-btn"
+                            disabled={barbers.length >= maxBarbers}
+                            onClick={()=>{
+                              if(barbers.length < maxBarbers)
+                                setBarbers(p=>[...p,{name:"",role:"Barber"}])
+                            }}>
+                            {barbers.length >= maxBarbers
+                              ? `✕ Όριο ${maxBarbers} barbers`
+                              : `+ Barber (${barbers.length}/${maxBarbers})`}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </>
                 )}
 
                 <div className="actions">
                   {step > 1 && (
-                    <button className="btn ghost" onClick={back}>← Πίσω</button>
+                    <button className="btn ghost" onClick={() => { setError(''); setStep(s=>s-1) }}>← Πίσω</button>
                   )}
-                  <button className="btn primary" disabled={!canNext()||loading} onClick={next}>
+                  <button className="btn primary"
+                    disabled={!canNext()||loading}
+                    onClick={() => {
+                      if(!canNext()) return
+                      if(step === TOTAL_STEPS) handleFinish()
+                      else setStep(s=>s+1)
+                    }}>
                     {loading?"⏳ Δημιουργία...":step===TOTAL_STEPS?"Ολοκλήρωση 🚀":"Επόμενο →"}
                   </button>
                 </div>
@@ -611,13 +636,25 @@ export default function OnboardingPage() {
               <div className="success">
                 <div className="check-wrap">✓</div>
                 <h2>Καλώς ήρθες στο BarberBook! 💈</h2>
-                <p>Το κουρείο σου δημιουργήθηκε επιτυχώς και είναι τώρα ζωντανό!</p>
+                <p>Το κουρείο σου είναι τώρα ζωντανό! Μοιράσου το link σου στο Instagram bio σου.</p>
+
+                {/* SHOP LINK */}
+                <div className="link-box">
+                  <input readOnly value={shopLink}/>
+                  <button className="copy-btn" onClick={() => {
+                    navigator.clipboard.writeText(shopLink)
+                    alert('✅ Αντιγράφηκε!')
+                  }}>Αντιγραφή</button>
+                </div>
+
                 <div className="success-card">
                   <div className="sc-row"><span className="sc-label">Κουρείο</span><span className="sc-val">{shopName}</span></div>
+                  <div className="sc-row"><span className="sc-label">Πλάνο</span><span className="sc-val">{getPlanLimits(plan).label}</span></div>
                   <div className="sc-row"><span className="sc-label">Πόλη</span><span className="sc-val">{city}</span></div>
-                  <div className="sc-row"><span className="sc-label">Barbers</span><span className="sc-val">{numBarbers === 1 ? '1' : numBarbers === 2 ? '2' : '3+'}</span></div>
                   <div className="sc-row"><span className="sc-label">Υπηρεσίες</span><span className="sc-val">{services.length}</span></div>
+                  <div className="sc-row"><span className="sc-label">Φωτογραφίες</span><span className="sc-val">{photoFiles.length}</span></div>
                 </div>
+
                 <button className="btn primary" style={{width:"100%"}}
                   onClick={()=>window.location.href="/dashboard"}>
                   Πήγαινε στο Dashboard →

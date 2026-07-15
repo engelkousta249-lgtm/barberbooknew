@@ -310,7 +310,8 @@ export default function Home() {
         html{scroll-behavior:smooth;}
         body{background:var(--navy);color:var(--white);font-family:'Inter',sans-serif;overflow-x:hidden;}
 @media(max-width:768px){
-  .nav-center{display:none;}
+  .nav-center{display:none !important;}
+}
 }
         /* NAV */
         .nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 2rem;height:68px;
@@ -335,7 +336,9 @@ export default function Home() {
         .hamburger.open span:nth-child(1){transform:rotate(45deg) translate(5px,5px);}
         .hamburger.open span:nth-child(2){opacity:0;}
         .hamburger.open span:nth-child(3){transform:rotate(-45deg) translate(5px,-5px);}
-
+@media(max-width:768px){
+  .nav-center{display:none !important;}
+}
         /* HERO */
         .hero{min-height:100vh;display:flex;align-items:center;justify-content:center;
           position:relative;overflow:hidden;padding:0 2rem;

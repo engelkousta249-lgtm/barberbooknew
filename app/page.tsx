@@ -287,7 +287,7 @@ export default function Home() {
           <div className="shop-card-name">{b.name}</div>
           <div className="shop-card-addr">📍 {b.address ? `${b.address}, ${b.city}` : b.city}</div>
           <div className="shop-card-bottom">
-            <span className="shop-card-rating">★ {b.rating || "5.0"}</span>
+          
             <button className="shop-card-btn" onClick={e => { e.stopPropagation(); window.location.href=`/barbershops/${b.id}` }}>
               Κλείσε →
             </button>
@@ -309,7 +309,9 @@ export default function Home() {
         *{margin:0;padding:0;box-sizing:border-box;}
         html{scroll-behavior:smooth;}
         body{background:var(--navy);color:var(--white);font-family:'Inter',sans-serif;overflow-x:hidden;}
-
+@media(max-width:768px){
+  .nav-center{display:none;}
+}
         /* NAV */
         .nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 2rem;height:68px;
           display:flex;align-items:center;justify-content:space-between;
@@ -718,20 +720,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* STATS BAR */}
-      <div className="stats-bar">
-        {[
-          { num: `${barbershops.length}+`, label: "Κουρεία" },
-          { num: "10K+", label: "Ραντεβού" },
-          { num: "50+", label: "Πόλεις" },
-          { num: "4.9★", label: "Μέση Βαθμολογία" },
-        ].map(s => (
-          <div key={s.label} className="stat-item">
-            <div className="stat-num">{s.num}</div>
-            <div className="stat-label">{s.label}</div>
-          </div>
-        ))}
-      </div>
+      
 
       {/* FEATURED BARBERS */}
       <section className="section">

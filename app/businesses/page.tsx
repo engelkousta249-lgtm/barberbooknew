@@ -231,20 +231,7 @@ export default function BusinessPage() {
         </div>
       </section>
 
-      {/* STATS */}
-      <div className="biz-stats">
-        {[
-          { num:"400+", label:"Ενεργά Κουρεία" },
-          { num:"10K+", label:"Ραντεβού/Μήνα" },
-          { num:"50+", label:"Πόλεις" },
-          { num:"€0", label:"Για να Ξεκινήσεις" },
-        ].map(s => (
-          <div key={s.label} className="biz-stat">
-            <div className="biz-stat-num">{s.num}</div>
-            <div className="biz-stat-label">{s.label}</div>
-          </div>
-        ))}
-      </div>
+      
 
       {/* FEATURES */}
       <section className="features-section">

@@ -108,12 +108,6 @@ export default function Dashboard() {
           })))
         }
 
-        // Φόρτωσε barbers
-        const { data: barbersData } = await supabase
-          .from("barbers").select("*").eq("shop_id", profile.barbershop_id)
-        if (barbersData && barbersData.length > 0) {
-          setTeamMembers(barbersData.map((b:any) => ({ name: b.name, role: b.role })))
-        }
       }
       setLoading(false)
     }

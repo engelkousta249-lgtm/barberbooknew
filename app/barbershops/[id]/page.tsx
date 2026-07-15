@@ -8,44 +8,17 @@ const supabase = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjZmtoZGppcmFnYmxzaXFldGVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2OTY0ODYsImV4cCI6MjA5NzI3MjQ4Nn0.EkmgRuYzrvF0A_pgT9vaOouMRKeQ2kasPZxpoIuCgeE"
 )
 
-const DEFAULT_SERVICES: any[] = []
+const DOW_SHORT = ["ΔΕΥ","ΤΡΙ","ΤΕΤ","ΠΕΜ","ΠΑΡ","ΣΑΒ","ΚΥΡ"]
 
-const DEFAULT_HOURS = [
-  { short:"Δευ", full:"Δευτέρα", active:true, open:"09:00", close:"19:00" },
-  { short:"Τρί", full:"Τρίτη", active:true, open:"09:00", close:"19:00" },
-  { short:"Τετ", full:"Τετάρτη", active:true, open:"09:00", close:"19:00" },
-  { short:"Πέμ", full:"Πέμπτη", active:true, open:"09:00", close:"21:00" },
-  { short:"Παρ", full:"Παρασκευή", active:true, open:"09:00", close:"21:00" },
-  { short:"Σάβ", full:"Σάββατο", active:true, open:"10:00", close:"16:00" },
-  { short:"Κυρ", full:"Κυριακή", active:false, open:"", close:"" },
-]
-
-const DEFAULT_PHOTOS = [
-  "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=300",
-  "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=300",
-  "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=300",
-  "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=300",
-  "https://images.unsplash.com/photo-1512864084360-7c0c4d0a0c3b?w=300",
-  "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=300",
-]
-
-const HERO_IMGS = [
+const DEFAULT_HERO = [
   "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=700",
   "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=700",
-  "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=700",
 ]
-
-const BARBERS = [
-  { id: "any", name: "Οποιονδήποτε", role: "", rating: null },
-]
-
-const DOW_SHORT = ["ΔΕΥ","ΤΡΙ","ΤΕΤ","ΠΕΜ","ΠΑΡ","ΣΑΒ","ΚΥΡ"]
 
 function slotsInRange(open: string, close: string) {
   const [oh, om] = open.split(":").map(Number)
   const [ch] = close.split(":").map(Number)
-  let cur = oh * 60 + om
-  const end = ch * 60
+  let cur = oh * 60 + om, end = ch * 60
   const out: string[] = []
   while (cur < end) {
     out.push(String(Math.floor(cur/60)).padStart(2,"0")+":"+String(cur%60).padStart(2,"0"))
@@ -81,6 +54,8 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
   const [services, setServices] = useState<any[]>([])
   const [hours, setHours] = useState<any[]>([])
   const [photos, setPhotos] = useState<string[]>([])
+  const [heroImgs, setHeroImgs] = useState<string[]>(DEFAULT_HERO)
+  const [barbersList, setBarbersList] = useState<any[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
   const [lightbox, setLightbox] = useState<string|null>(null)
   const [wizardOpen, setWizardOpen] = useState(false)
@@ -101,25 +76,24 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
 
   const days = nextDays(7)
 
-  // Load shop + services + hours + photos
   useEffect(() => {
     async function load() {
+      // Shop
       const { data: shopData } = await supabase
         .from("barbershops").select("*").eq("id", id).single()
       if (shopData) setShop(shopData)
 
-      const { data: svcData, error: svcError } = await supabase
-  .from("services").select("*").eq("shop_id", id)
-console.log("Services:", svcData, "Error:", svcError)
-if (svcData && svcData.length > 0) {
+      // Services
+      const { data: svcData } = await supabase
+        .from("services").select("*").eq("shop_id", id)
+      if (svcData && svcData.length > 0) {
         setServices(svcData.map((s: any, i: number) => ({
-          id: i + 1, name: s.name, duration: s.duration_minutes,
-          price: s.price, cat: "Κούρεμα", sub: ""
+          id: i + 1, name: s.name, duration: s.duration_minutes || 30,
+          price: s.price, cat: "Υπηρεσίες", sub: ""
         })))
-      } else {
-        setServices(DEFAULT_SERVICES)
       }
 
+      // Hours
       const { data: hoursData } = await supabase
         .from("working_hours").select("*").eq("shop_id", id).order("day_of_week")
       const dayNames = ["Δευτέρα","Τρίτη","Τετάρτη","Πέμπτη","Παρασκευή","Σάββατο","Κυριακή"]
@@ -132,16 +106,30 @@ if (svcData && svcData.length > 0) {
           close: h.close_time || "19:00",
         })))
       } else {
-        setHours(DEFAULT_HOURS)
+        setHours([
+          { short:"Δευ", full:"Δευτέρα", active:true, open:"09:00", close:"19:00" },
+          { short:"Τρί", full:"Τρίτη", active:true, open:"09:00", close:"19:00" },
+          { short:"Τετ", full:"Τετάρτη", active:true, open:"09:00", close:"19:00" },
+          { short:"Πέμ", full:"Πέμπτη", active:true, open:"09:00", close:"21:00" },
+          { short:"Παρ", full:"Παρασκευή", active:true, open:"09:00", close:"21:00" },
+          { short:"Σάβ", full:"Σάββατο", active:true, open:"10:00", close:"16:00" },
+          { short:"Κυρ", full:"Κυριακή", active:false, open:"", close:"" },
+        ])
       }
 
+      // Photos
       const { data: photosData } = await supabase
         .from("portfolio_photos").select("*").eq("shop_id", id)
       if (photosData && photosData.length > 0) {
-        setPhotos(photosData.map((p: any) => p.url))
-      } else {
-        setPhotos(DEFAULT_PHOTOS)
+        const urls = photosData.map((p: any) => p.url)
+        setPhotos(urls)
+        setHeroImgs(urls)
       }
+
+      // Barbers
+      const { data: barbersData } = await supabase
+        .from("barbers").select("*").eq("shop_id", id)
+      if (barbersData) setBarbersList(barbersData)
 
       setLoading(false)
     }
@@ -149,11 +137,12 @@ if (svcData && svcData.length > 0) {
   }, [id])
 
   useEffect(() => {
+    if (heroImgs.length <= 1) return
     const interval = setInterval(() => {
-      setHeroIdx(i => (i + 1) % HERO_IMGS.length)
+      setHeroIdx(i => (i + 1) % heroImgs.length)
     }, 3200)
     return () => clearInterval(interval)
-  }, [])
+  }, [heroImgs])
 
   useEffect(() => {
     if (dayIndex === null) return
@@ -172,6 +161,8 @@ if (svcData && svcData.length > 0) {
     setSubmitting(true)
     const svc = services.find(s => s.id === serviceId)
     const day = days[dayIndex!]
+    const barberName = barbersList.find(b => b.id === barberId)?.name || "Οποιονδήποτε"
+
     const { error } = await supabase.from("appointments").insert({
       barbershop_id: id,
       customer_name: name,
@@ -184,7 +175,6 @@ if (svcData && svcData.length > 0) {
     })
     if (error) { showToast("Κάτι πήγε στραβά!"); setSubmitting(false); return }
 
-    // Send emails
     await fetch("/api/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -198,6 +188,7 @@ if (svcData && svcData.length > 0) {
           customerEmail: email,
           customerPhone: phone,
           service: svc?.name,
+          barber: barberName,
           date: fmtDate(day.date),
           time: time,
         }
@@ -208,8 +199,11 @@ if (svcData && svcData.length > 0) {
     setSubmitting(false)
   }
 
+  // Step 1 valid: αν έχει barbers πρέπει να επιλέξει, αλλιώς auto-pass
+  const step1Valid = barbersList.length === 0 || barberId !== null
+
   const canNext =
-    (step === 1 && barberId !== null) ||
+    (step === 1 && step1Valid) ||
     (step === 2 && serviceId !== null) ||
     (step === 3 && dayIndex !== null && time !== null) ||
     (step === 4 && name.trim() && phone.trim() && email.trim()) ||
@@ -217,10 +211,9 @@ if (svcData && svcData.length > 0) {
 
   const svc = services.find(s => s.id === serviceId)
   const day = dayIndex !== null ? days[dayIndex] : null
-  const barber = BARBERS.find(b => b.id === barberId)
+  const barber = barbersList.find(b => b.id === barberId)
   const cats = ["Όλες", ...Array.from(new Set(services.map(s => s.cat)))]
   const filteredSvcs = services.filter(s => svcFilter === "Όλες" || s.cat === svcFilter)
-  const portfolio = photos
 
   if (loading) return (
     <div style={{background:"#070c16",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter,sans-serif",color:"#8a97ac"}}>
@@ -238,7 +231,7 @@ if (svcData && svcData.length > 0) {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
-        :root{--navy-900:#070c16;--navy-800:#0b1424;--navy-700:#101c33;--navy-600:#16233f;--blue:#3b7bff;--blue-soft:rgba(59,123,255,.14);--gold:#d4af37;--gold-soft:rgba(212,175,55,.14);--text:#eaeef6;--muted:#8a97ac;--line:rgba(255,255,255,.08);--green:#3ecf8e;--red:#ff5c72;}
+        :root{--navy-900:#070c16;--navy-800:#0b1424;--navy-700:#101c33;--navy-600:#16233f;--blue:#3b7bff;--blue-soft:rgba(59,123,255,.14);--gold:#d4af37;--text:#eaeef6;--muted:#8a97ac;--line:rgba(255,255,255,.08);--green:#3ecf8e;--red:#ff5c72;}
         *{box-sizing:border-box;margin:0;padding:0;}
         html{scroll-behavior:smooth;}
         body{font-family:'Inter',sans-serif;background:radial-gradient(1100px 500px at 85% -10%,rgba(59,123,255,.12),transparent 60%),radial-gradient(900px 500px at -10% 110%,rgba(212,175,55,.08),transparent 60%),var(--navy-900);color:var(--text);min-height:100vh;overflow-x:hidden;}
@@ -250,19 +243,20 @@ if (svcData && svcData.length > 0) {
         @keyframes pinDrop{0%{transform:translate(-50%,-260%);opacity:0;}70%{transform:translate(-50%,-90%);}100%{transform:translate(-50%,-100%);opacity:1;}}
         @keyframes kenBurns{0%{transform:scale(1);}100%{transform:scale(1.1);}}
         .wrap{max-width:680px;margin:0 auto;padding-bottom:110px;}
-        .hero{position:relative;height:230px;overflow:hidden;}
+        .hero{position:relative;height:230px;overflow:hidden;background:var(--navy-800);}
         .hero-slide{position:absolute;inset:0;background-size:cover;background-position:center;transition:opacity .6s;opacity:0;}
         .hero-slide.active{opacity:1;animation:kenBurns 9s ease-in-out infinite alternate;}
+        .hero-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:64px;opacity:0.3;}
         .hero-fade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,12,22,0) 40%,var(--navy-900) 100%);}
         .hero-dots{position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:5px;z-index:3;}
-        .hero-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.35);transition:.25s;}
+        .hero-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.35);transition:.25s;cursor:pointer;}
         .hero-dot.active{background:#fff;width:14px;border-radius:3px;}
         .back-btn{position:absolute;top:16px;left:16px;width:36px;height:36px;border-radius:50%;background:rgba(7,12,22,.55);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:16px;backdrop-filter:blur(4px);z-index:3;cursor:pointer;color:var(--text);}
         .gallery-chip{position:absolute;bottom:12px;right:14px;background:rgba(7,12,22,.65);border:1px solid var(--line);backdrop-filter:blur(4px);font-size:11px;font-weight:700;padding:6px 11px;border-radius:999px;z-index:3;}
         .header-card{margin:-40px 16px 0;background:var(--navy-800);border:1px solid var(--line);border-radius:18px;padding:16px;position:relative;z-index:2;animation:fadeSlideIn .5s ease both;}
         .shop-name-row{font-size:19px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:'Outfit',sans-serif;}
         .verified{font-size:10px;font-weight:800;color:var(--navy-900);background:var(--gold);padding:2px 8px;border-radius:999px;}
-        .shop-meta{font-size:12.5px;color:var(--muted);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+        .shop-meta{font-size:12.5px;color:var(--muted);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap;}
         .stars{color:var(--gold);font-weight:700;}
         .status-pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px;margin-top:10px;background:rgba(62,207,142,.14);color:var(--green);}
         .status-dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulseRing 1.6s infinite;}
@@ -271,6 +265,7 @@ if (svcData && svcData.length > 0) {
         .pf-item{aspect-ratio:1;border-radius:13px;overflow:hidden;border:1px solid var(--line);cursor:pointer;}
         .pf-item img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .35s;}
         .pf-item:hover img{transform:scale(1.08);}
+        .pf-empty{aspect-ratio:1;border-radius:13px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:24px;opacity:0.3;}
         .map-card{margin:0 16px 8px;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:var(--navy-800);}
         .map-visual{height:150px;position:relative;overflow:hidden;background:linear-gradient(var(--navy-700) 1px,transparent 1px) 0 0/30px 30px,linear-gradient(90deg,var(--navy-700) 1px,transparent 1px) 0 0/30px 30px,var(--navy-600);}
         .map-visual::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 55%,rgba(59,123,255,.16),transparent 60%);}
@@ -303,10 +298,10 @@ if (svcData && svcData.length > 0) {
         .barber-card{border-radius:14px;border:1.5px solid var(--line);background:var(--navy-700);padding:12px 8px;text-align:center;cursor:pointer;transition:.18s;}
         .barber-card:hover{border-color:rgba(59,123,255,.4);}
         .barber-card.selected{border-color:var(--blue);background:var(--blue-soft);box-shadow:0 0 0 3px rgba(59,123,255,.15);}
-        .barber-avatar{width:52px;height:52px;border-radius:50%;margin:0 auto 8px;background:linear-gradient(135deg,var(--blue),var(--gold));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;}
+        .barber-avatar{width:52px;height:52px;border-radius:50%;margin:0 auto 8px;background:linear-gradient(135deg,var(--blue),var(--gold));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;}
         .barber-name{font-size:11.5px;font-weight:700;}
         .barber-role{font-size:9.5px;color:var(--muted);margin-top:2px;}
-        .barber-rating{font-size:10px;color:var(--gold);margin-top:3px;font-weight:700;}
+        .no-barbers{text-align:center;padding:20px;color:var(--muted);}
         .filter-tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;scrollbar-width:none;}
         .filter-tabs::-webkit-scrollbar{display:none;}
         .filter-tab{flex-shrink:0;padding:7px 14px;border-radius:999px;font-size:12px;font-weight:700;background:var(--navy-700);border:1px solid var(--line);color:var(--muted);cursor:pointer;transition:.15s;}
@@ -315,7 +310,6 @@ if (svcData && svcData.length > 0) {
         .svc-card:hover{border-color:rgba(59,123,255,.4);}
         .svc-card.selected{border-color:var(--blue);background:var(--blue-soft);box-shadow:0 0 0 3px rgba(59,123,255,.12);}
         .svc-name{font-size:14.5px;font-weight:700;}
-        .svc-sub{font-size:11px;color:var(--muted);margin-top:2px;}
         .svc-dur{font-size:12px;color:var(--muted);margin-top:3px;}
         .svc-price{font-size:15px;font-weight:800;color:var(--gold);font-family:'Outfit',sans-serif;}
         .day-pills{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:18px;scrollbar-width:none;}
@@ -333,9 +327,9 @@ if (svcData && svcData.length > 0) {
         .slot.taken{opacity:.3;text-decoration:line-through;cursor:not-allowed;}
         .field-group{margin-bottom:14px;}
         .field-group label{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;}
-        .field-group input,.field-group textarea{width:100%;background:var(--navy-700);border:1px solid var(--line);border-radius:10px;padding:12px 13px;font-size:14px;color:var(--text);transition:.15s;}
-        .field-group input:focus,.field-group textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,123,255,.15);}
-        .field-group textarea{resize:none;min-height:70px;}
+        .field-group input{width:100%;background:var(--navy-700);border:1px solid var(--line);border-radius:10px;padding:12px 13px;font-size:14px;color:var(--text);transition:.15s;outline:none;}
+        .field-group input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,123,255,.15);}
+        .field-group input::placeholder{color:var(--muted);}
         .summary-row{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
         .summary-row:last-of-type{border-bottom:none;}
         .summary-row .lbl{color:var(--muted);}
@@ -359,8 +353,6 @@ if (svcData && svcData.length > 0) {
         .lightbox-close{position:absolute;top:22px;right:20px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;cursor:pointer;}
         .toast-bar{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--navy-700);border:1px solid var(--blue);color:var(--text);padding:10px 18px;border-radius:10px;font-size:12.5px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;z-index:50;white-space:nowrap;}
         .toast-bar.show{opacity:1;transform:translateX(-50%) translateY(0);}
-        .back-link{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;cursor:pointer;margin-bottom:16px;background:none;border:none;}
-        .back-link:hover{color:var(--text);}
         @media(max-width:420px){.slot-grid{grid-template-columns:repeat(3,1fr);}.barber-grid{grid-template-columns:repeat(2,1fr);}}
       `}</style>
 
@@ -371,24 +363,37 @@ if (svcData && svcData.length > 0) {
         </div>
       )}
 
+      {/* HERO */}
       <div className="hero">
-        {HERO_IMGS.map((img, i) => (
-          <div key={i} className={`hero-slide ${heroIdx===i?"active":""}`}
-            style={{backgroundImage:`url(${img})`}}/>
-        ))}
+        {heroImgs.length > 0 ? (
+          heroImgs.map((img, i) => (
+            <div key={i} className={`hero-slide ${heroIdx===i?"active":""}`}
+              style={{backgroundImage:`url(${img})`}}/>
+          ))
+        ) : (
+          <div className="hero-empty">💈</div>
+        )}
         <div className="hero-fade"/>
         <button className="back-btn" onClick={() => window.history.back()}>←</button>
-        <div className="gallery-chip">📷 {portfolio.length} φωτογραφίες</div>
-        <div className="hero-dots">
-          {HERO_IMGS.map((_, i) => (
-            <div key={i} className={`hero-dot ${heroIdx===i?"active":""}`} onClick={() => setHeroIdx(i)}/>
-          ))}
-        </div>
+        {photos.length > 0 && (
+          <div className="gallery-chip">📷 {photos.length} φωτογραφίες</div>
+        )}
+        {heroImgs.length > 1 && (
+          <div className="hero-dots">
+            {heroImgs.map((_, i) => (
+              <div key={i} className={`hero-dot ${heroIdx===i?"active":""}`} onClick={() => setHeroIdx(i)}/>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="wrap">
+        {/* HEADER */}
         <div className="header-card">
           <div className="shop-name-row">
+            {shop.logo_url && (
+              <img src={shop.logo_url} alt="logo" style={{width:36,height:36,borderRadius:"50%",objectFit:"cover",border:"2px solid var(--gold)"}}/>
+            )}
             {shop.name}
             <span className="verified">✓ VERIFIED</span>
           </div>
@@ -404,15 +409,21 @@ if (svcData && svcData.length > 0) {
 
         {!wizardOpen && (
           <>
-            <div className="section-title">💈 Πορτφόλιο</div>
-            <div className="pf-grid">
-              {portfolio.map((url, i) => (
-                <div key={i} className="pf-item" onClick={() => setLightbox(url)}>
-                  <img src={url} alt="" loading="lazy"/>
+            {/* PORTFOLIO */}
+            {photos.length > 0 && (
+              <>
+                <div className="section-title">💈 Πορτφόλιο</div>
+                <div className="pf-grid">
+                  {photos.map((url, i) => (
+                    <div key={i} className="pf-item" onClick={() => setLightbox(url)}>
+                      <img src={url} alt="" loading="lazy"/>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
 
+            {/* MAP */}
             <div className="section-title">📍 Τοποθεσία</div>
             <div className="map-card">
               <div className="map-visual">
@@ -427,15 +438,18 @@ if (svcData && svcData.length > 0) {
                   <div className="map-sub">{shop.city}</div>
                 </div>
                 <a className="map-btn"
-                  href={`https://maps.google.com/?q=${encodeURIComponent(shop.address+" "+shop.city)}`}
+                  href={`https://maps.google.com/?q=${encodeURIComponent((shop.address||"")+" "+(shop.city||""))}`}
                   target="_blank" rel="noopener">
                   Οδηγίες
                 </a>
               </div>
             </div>
 
+            {/* CTA */}
             <div className="cta-hero">
               <button className="btn-start" onClick={() => {
+                // Αν δεν έχει barbers, auto-select
+                if (barbersList.length === 0) setBarberId("any")
                 setWizardOpen(true)
                 setTimeout(() => wizardRef.current?.scrollIntoView({behavior:"smooth"}), 100)
               }}>
@@ -445,6 +459,7 @@ if (svcData && svcData.length > 0) {
           </>
         )}
 
+        {/* WIZARD */}
         {wizardOpen && !done && (
           <div className="wizard" ref={wizardRef}>
             <div className="stepper">
@@ -458,46 +473,60 @@ if (svcData && svcData.length > 0) {
               ))}
             </div>
             <div className="step-labels">
-              {["Barber","Υπηρεσία","Ώρα","Στοιχεία","Τέλος"].map(l => (
+              {["Barber","Υπηρεσία","Ώρα","Στοιχεία","Επιβεβαίωση"].map(l => (
                 <span key={l}>{l}</span>
               ))}
             </div>
 
             <div className="panel">
+              {/* STEP 1 — BARBER */}
               {step===1 && (
                 <>
                   <h2>Επίλεξε Barber</h2>
-                  <p className="hint">Ποιον προτιμάς;</p>
-                  <div className="barber-grid">
-                    {BARBERS.map(b => (
-                      <div key={String(b.id)} className={`barber-card ${barberId===b.id?"selected":""}`}
-                        onClick={() => setBarberId(b.id)}>
-                        <div className="barber-avatar">{b.id==="any"?"👥":(b as any).initials}</div>
-                        <div className="barber-name">{b.name}</div>
-                        {b.role && <div className="barber-role">{b.role}</div>}
-                        {b.rating && <div className="barber-rating">★ {b.rating}</div>}
-                      </div>
-                    ))}
-                  </div>
+                  <p className="hint">Ποιον προτιμάς για το ραντεβού σου;</p>
+                  {barbersList.length > 0 ? (
+                    <div className="barber-grid">
+                      {barbersList.map(b => (
+                        <div key={b.id}
+                          className={`barber-card ${barberId===b.id?"selected":""}`}
+                          onClick={() => setBarberId(b.id)}>
+                          <div className="barber-avatar">
+                            {b.name.slice(0,2).toUpperCase()}
+                          </div>
+                          <div className="barber-name">{b.name}</div>
+                          <div className="barber-role">{b.role || "Barber"}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="no-barbers">
+                      <div style={{fontSize:40,marginBottom:12}}>💈</div>
+                      <p style={{fontSize:13}}>Κλείσε με τον διαθέσιμο barber</p>
+                    </div>
+                  )}
                 </>
               )}
 
+              {/* STEP 2 — SERVICE */}
               {step===2 && (
                 <>
                   <h2>Επίλεξε Υπηρεσία</h2>
                   <p className="hint">Τι θα ήθελες να κάνεις;</p>
-                  <div className="filter-tabs">
-                    {cats.map(c => (
-                      <div key={c} className={`filter-tab ${svcFilter===c?"active":""}`}
-                        onClick={() => setSvcFilter(c)}>{c}</div>
-                    ))}
-                  </div>
-                  {filteredSvcs.map(s => (
+                  {services.length > 1 && (
+                    <div className="filter-tabs">
+                      {cats.map(c => (
+                        <div key={c} className={`filter-tab ${svcFilter===c?"active":""}`}
+                          onClick={() => setSvcFilter(c)}>{c}</div>
+                      ))}
+                    </div>
+                  )}
+                  {filteredSvcs.length === 0 ? (
+                    <p className="hint">Δεν υπάρχουν διαθέσιμες υπηρεσίες</p>
+                  ) : filteredSvcs.map(s => (
                     <div key={s.id} className={`svc-card ${serviceId===s.id?"selected":""}`}
                       onClick={() => setServiceId(s.id)}>
                       <div>
                         <div className="svc-name">{s.name}</div>
-                        {s.sub && <div className="svc-sub">{s.sub}</div>}
                         <div className="svc-dur">{s.duration} λεπτά</div>
                       </div>
                       <div className="svc-price">€{s.price}</div>
@@ -506,22 +535,26 @@ if (svcData && svcData.length > 0) {
                 </>
               )}
 
+              {/* STEP 3 — DATE & TIME */}
               {step===3 && (
                 <>
                   <h2>Ημέρα & Ώρα</h2>
-                  <p className="hint">Διαθέσιμες ώρες με βάση το ωράριο</p>
+                  <p className="hint">Διαλέξε πότε θέλεις να έρθεις</p>
                   <div className="day-pills">
-                    {days.map((d,i) => (
-                      <div key={i}
-                        className={`day-pill ${dayIndex===i?"selected":""} ${!hours[d.hIdx]?.active?"closed":""}`}
-                        onClick={() => {
-                          if (!hours[d.hIdx]?.active) { showToast("Κλειστό αυτή την ημέρα"); return }
-                          setDayIndex(i); setTime(null)
-                        }}>
-                        <div className="dn">{DOW_SHORT[d.hIdx]}</div>
-                        <div className="dd">{fmtDate(d.date)}</div>
-                      </div>
-                    ))}
+                    {days.map((d,i) => {
+                      const h = hours[d.hIdx]
+                      return (
+                        <div key={i}
+                          className={`day-pill ${dayIndex===i?"selected":""} ${!h?.active?"closed":""}`}
+                          onClick={() => {
+                            if (!h?.active) { showToast("Κλειστό αυτή την ημέρα"); return }
+                            setDayIndex(i); setTime(null)
+                          }}>
+                          <div className="dn">{DOW_SHORT[d.hIdx]}</div>
+                          <div className="dd">{fmtDate(d.date)}</div>
+                        </div>
+                      )
+                    })}
                   </div>
                   {dayIndex===null ? (
                     <p className="hint">Επίλεξε πρώτα ημέρα</p>
@@ -541,6 +574,7 @@ if (svcData && svcData.length > 0) {
                 </>
               )}
 
+              {/* STEP 4 — DETAILS */}
               {step===4 && (
                 <>
                   <h2>Τα Στοιχεία σου</h2>
@@ -560,12 +594,15 @@ if (svcData && svcData.length > 0) {
                 </>
               )}
 
-              {step===5 && svc && day && barber && (
+              {/* STEP 5 — SUMMARY */}
+              {step===5 && svc && day && (
                 <>
                   <h2>Επιβεβαίωση Ραντεβού</h2>
                   <p className="hint">Έλεγξε τα στοιχεία πριν την οριστικοποίηση</p>
                   <div className="summary-row"><span className="lbl">Κατάστημα</span><span className="val">{shop.name}</span></div>
-                  <div className="summary-row"><span className="lbl">Barber</span><span className="val">{barber.name}</span></div>
+                  {barbersList.length > 0 && barber && (
+                    <div className="summary-row"><span className="lbl">Barber</span><span className="val">{barber.name}</span></div>
+                  )}
                   <div className="summary-row"><span className="lbl">Υπηρεσία</span><span className="val">{svc.name}</span></div>
                   <div className="summary-row"><span className="lbl">Ημέρα</span><span className="val">{DOW_SHORT[day.hIdx]}, {fmtDate(day.date)}</span></div>
                   <div className="summary-row"><span className="lbl">Ώρα</span><span className="val">{time}</span></div>
@@ -578,6 +615,7 @@ if (svcData && svcData.length > 0) {
           </div>
         )}
 
+        {/* SUCCESS */}
         {done && (
           <div className="panel" style={{margin:"16px 0"}}>
             <div className="success">
@@ -592,6 +630,7 @@ if (svcData && svcData.length > 0) {
         )}
       </div>
 
+      {/* BOTTOM BAR */}
       {(wizardOpen||done) && (
         <div className="bottom-bar">
           <div className="bottom-bar-in">
@@ -601,7 +640,10 @@ if (svcData && svcData.length > 0) {
               <>
                 {step>1 && <button className="btn ghost" onClick={() => setStep(s=>s-1)}>← Πίσω</button>}
                 <button className="btn primary" disabled={!canNext||submitting}
-                  onClick={() => { if(step<5) setStep(s=>s+1); else handleSubmit() }}>
+                  onClick={() => {
+                    if(step<5) setStep(s=>s+1)
+                    else handleSubmit()
+                  }}>
                   {submitting?"⏳ Αποστολή...":step===5?"Οριστικοποίηση Ραντεβού":"Επόμενο →"}
                 </button>
               </>

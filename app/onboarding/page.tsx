@@ -667,3 +667,80 @@ export default function OnboardingPage() {
     </>
   )
 }
+
+
+{/* CTA SECTION */}
+<section style={{
+  padding:"5rem 2rem",
+  background:"radial-gradient(ellipse 80% 60% at 50% 50%,rgba(30,95,255,0.12),transparent 70%)",
+  borderTop:"1px solid var(--line)",
+  textAlign:"center"
+}}>
+  <div style={{maxWidth:700,margin:"0 auto"}}>
+    <div style={{
+      display:"inline-flex",alignItems:"center",gap:"0.5rem",
+      background:"rgba(30,95,255,0.1)",border:"1px solid rgba(30,95,255,0.25)",
+      borderRadius:"2rem",padding:"0.4rem 1rem",fontSize:"0.72rem",fontWeight:700,
+      color:"var(--light)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"1.5rem"
+    }}>✂️ Η Πλατφόρμα Αρ.1 για Barbers</div>
+
+    <h2 style={{
+      fontFamily:"'Bebas Neue',sans-serif",
+      fontSize:"clamp(2.5rem,7vw,5rem)",
+      letterSpacing:"0.03em",lineHeight:0.95,marginBottom:"1rem"
+    }}>
+      Βρες τον<br/>
+      <span style={{
+        background:"linear-gradient(120deg,var(--glow),var(--gold2))",
+        WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"
+      }}>Καλύτερο Barber</span><br/>
+      Κοντά σου
+    </h2>
+
+    <p style={{
+      fontSize:"1rem",color:"var(--light)",opacity:0.6,
+      lineHeight:1.8,maxWidth:480,margin:"0 auto 2rem"
+    }}>
+      Κλείσε ραντεβού online σε δευτερόλεπτα. Χωρίς κλήσεις, χωρίς αναμονή.
+    </p>
+
+    <div style={{display:"flex",justifyContent:"center",gap:"3rem",flexWrap:"wrap",marginBottom:"2.5rem"}}>
+      {[
+        { num:"50+", label:"Κουρεία" },
+        { num:"500+", label:"Ραντεβού" },
+        { num:"4.9★", label:"Βαθμολογία" },
+      ].map(s => (
+        <div key={s.label} style={{textAlign:"center"}}>
+          <div style={{
+            fontFamily:"'Bebas Neue',sans-serif",fontSize:"2.2rem",
+            background:"linear-gradient(120deg,var(--glow),var(--gold))",
+            WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"
+          }}>{s.num}</div>
+          <div style={{fontSize:"0.72rem",color:"var(--light)",opacity:0.5,
+            textTransform:"uppercase",letterSpacing:"0.08em",marginTop:"0.2rem"}}>{s.label}</div>
+        </div>
+      ))}
+    </div>
+
+    <div style={{display:"flex",justifyContent:"center",gap:"1rem",flexWrap:"wrap"}}>
+      <button onClick={() => window.scrollTo({top:0,behavior:"smooth"})}
+        style={{
+          padding:"0.9rem 2rem",borderRadius:"0.8rem",border:"none",
+          background:"linear-gradient(135deg,#1e5fff,#0a3ab8)",color:"#fff",
+          fontSize:"0.95rem",fontWeight:700,cursor:"pointer",
+          fontFamily:"'Inter',sans-serif",boxShadow:"0 8px 24px rgba(30,95,255,0.3)"
+        }}>
+        ✂️ Βρες Barber
+      </button>
+      <button onClick={() => window.location.href="/businesses"}
+        style={{
+          padding:"0.9rem 2rem",borderRadius:"0.8rem",
+          background:"none",border:"1px solid rgba(168,200,255,0.2)",
+          color:"var(--light)",fontSize:"0.95rem",fontWeight:700,
+          cursor:"pointer",fontFamily:"'Inter',sans-serif"
+        }}>
+        Για Επιχειρήσεις →
+      </button>
+    </div>
+  </div>
+</section>

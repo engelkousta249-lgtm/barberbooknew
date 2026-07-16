@@ -35,18 +35,19 @@ export default function Dashboard() {
   const [newService, setNewService] = useState("Κούρεμα")
   const [blockReason, setBlockReason] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [teamMembers, setTeamMembers] = useState<{name:string, role:string}[]>([])
-
+  const [teamMembers, setTeamMembers] = useState<{name:string,role:string}[]>([])
   const [editServices, setEditServices] = useState<{name:string,duration:number,price:number}[]>([])
   const [hours, setHours] = useState([
-    {day:"Δευ", active:true, open:"09:00", close:"19:00"},
-    {day:"Τρί", active:true, open:"09:00", close:"19:00"},
-    {day:"Τετ", active:true, open:"09:00", close:"19:00"},
-    {day:"Πέμ", active:true, open:"09:00", close:"21:00"},
-    {day:"Παρ", active:true, open:"09:00", close:"21:00"},
-    {day:"Σάβ", active:true, open:"10:00", close:"16:00"},
-    {day:"Κυρ", active:false, open:"", close:""},
+    {day:"Δευ",active:true,open:"09:00",close:"19:00"},
+    {day:"Τρί",active:true,open:"09:00",close:"19:00"},
+    {day:"Τετ",active:true,open:"09:00",close:"19:00"},
+    {day:"Πέμ",active:true,open:"09:00",close:"21:00"},
+    {day:"Παρ",active:true,open:"09:00",close:"21:00"},
+    {day:"Σάβ",active:true,open:"10:00",close:"16:00"},
+    {day:"Κυρ",active:false,open:"",close:""},
   ])
+  const [photos, setPhotos] = useState<{id:string,url:string,is_cover:boolean}[]>([])
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
   const today = new Date().toISOString().split("T")[0]
   const todayName = DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1]
@@ -66,10 +67,7 @@ export default function Dashboard() {
       const { data: profile } = await supabase
         .from("profiles").select("*").eq("id", user.id).single()
 
-      if (profile?.role !== "owner") {
-        window.location.href = "/"
-        return
-      }
+      if (profile?.role !== "owner") { window.location.href = "/"; return }
 
       if (profile?.barbershop_id) {
         const { data: shop } = await supabase
@@ -82,22 +80,17 @@ export default function Dashboard() {
           .order("date", { ascending: true })
         setAppointments(appts || [])
 
-        // Φόρτωσε services
         const { data: svcData } = await supabase
           .from("services").select("*").eq("shop_id", profile.barbershop_id)
         if (svcData && svcData.length > 0) {
           setEditServices(svcData.map((s:any) => ({
-            name: s.name,
-            duration: s.duration_minutes,
-            price: s.price,
+            name: s.name, duration: s.duration_minutes, price: s.price,
           })))
         }
 
-        // Φόρτωσε working hours
         const { data: hoursData } = await supabase
           .from("working_hours").select("*")
-          .eq("shop_id", profile.barbershop_id)
-          .order("day_of_week")
+          .eq("shop_id", profile.barbershop_id).order("day_of_week")
         if (hoursData && hoursData.length > 0) {
           const dayShorts = ["Δευ","Τρί","Τετ","Πέμ","Παρ","Σάβ","Κυρ"]
           setHours(hoursData.map((h:any) => ({
@@ -108,6 +101,15 @@ export default function Dashboard() {
           })))
         }
 
+        const { data: barbersData } = await supabase
+          .from("barbers").select("*").eq("shop_id", profile.barbershop_id)
+        if (barbersData) {
+          setTeamMembers(barbersData.map((b:any) => ({ name: b.name, role: b.role })))
+        }
+
+        const { data: photosData } = await supabase
+          .from("portfolio_photos").select("*").eq("shop_id", profile.barbershop_id)
+        if (photosData) setPhotos(photosData)
       }
       setLoading(false)
     }
@@ -133,6 +135,50 @@ export default function Dashboard() {
     showToast("Το ραντεβού αλλάχτηκε ✓")
   }
 
+  async function saveTeam() {
+    if (!barbershop?.id) return
+    await supabase.from("barbers").delete().eq("shop_id", barbershop.id)
+    if (teamMembers.filter(b => b.name.trim()).length > 0) {
+      await supabase.from("barbers").insert(
+        teamMembers.filter(b => b.name.trim()).map(b => ({
+          shop_id: barbershop.id, name: b.name, role: b.role || "Barber",
+        }))
+      )
+    }
+    showToast("Αποθηκεύτηκε ✓")
+  }
+
+  async function uploadPhoto(file: File) {
+    if (!barbershop?.id || !user) return
+    setUploadingPhoto(true)
+    try {
+      const path = `${user.id}/photo-${Date.now()}`
+      const { error: upErr } = await supabase.storage
+        .from("shop-media").upload(path, file, { upsert: true })
+      if (upErr) { showToast("Σφάλμα upload!"); return }
+      const { data } = supabase.storage.from("shop-media").getPublicUrl(path)
+      const { data: newPhoto } = await supabase.from("portfolio_photos").insert({
+        shop_id: barbershop.id, url: data.publicUrl, is_cover: photos.length === 0,
+      }).select().single()
+      if (newPhoto) setPhotos(p => [...p, newPhoto])
+      showToast("Φωτογραφία προστέθηκε ✓")
+    } catch { showToast("Σφάλμα!") }
+    setUploadingPhoto(false)
+  }
+
+  async function deletePhoto(id: string) {
+    await supabase.from("portfolio_photos").delete().eq("id", id)
+    setPhotos(p => p.filter(ph => ph.id !== id))
+    showToast("Φωτογραφία διαγράφηκε")
+  }
+
+  async function setCover(id: string) {
+    await supabase.from("portfolio_photos").update({ is_cover: false }).eq("shop_id", barbershop.id)
+    await supabase.from("portfolio_photos").update({ is_cover: true }).eq("id", id)
+    setPhotos(p => p.map(ph => ({ ...ph, is_cover: ph.id === id })))
+    showToast("Εξώφυλλο ενημερώθηκε ✓")
+  }
+
   const todayAppts = appointments.filter(a => a.date === today && a.status !== "cancelled")
   const upcomingAppts = appointments.filter(a => a.date > today && a.status !== "cancelled")
   const totalRevenue = appointments.filter(a => a.status !== "cancelled").length * 15
@@ -146,8 +192,7 @@ export default function Dashboard() {
     date.setDate(d.getDate() + diff)
     const iso = date.toISOString().split("T")[0]
     return {
-      name, iso,
-      isToday: iso === today,
+      name, iso, isToday: iso === today,
       appts: appointments.filter(a => a.date === iso && a.status !== "cancelled")
     }
   })
@@ -155,12 +200,15 @@ export default function Dashboard() {
   const initials = (user?.user_metadata?.full_name || user?.email || "?")
     .split(" ").map((w: string) => w[0]).join("").slice(0,2).toUpperCase()
 
+  const maxBarbers = barbershop?.plan === "duo" ? 2 : barbershop?.plan === "team" ? 10 : 1
+
   const navItems = [
     {v:"overview", icon:"⊞", label:"Επισκόπηση"},
     {v:"week", icon:"📅", label:"Εβδομάδα"},
     {v:"services", icon:"✂️", label:"Υπηρεσίες"},
     {v:"hours", icon:"🕒", label:"Ωράριο"},
     {v:"team", icon:"👥", label:"Ομάδα"},
+    {v:"gallery", icon:"🖼️", label:"Gallery"},
     {v:"settings", icon:"⚙️", label:"Ρυθμίσεις"},
   ]
 
@@ -176,11 +224,9 @@ export default function Dashboard() {
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
         :root{
           --bg:#0a0f1e;--sidebar:#0d1526;--card:#111827;--card2:#1a2235;
-          --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.04);
-          --blue:#3b82f6;--blue-soft:rgba(59,130,246,.12);--blue-glow:rgba(59,130,246,.3);
-          --gold:#f59e0b;--gold-soft:rgba(245,158,11,.1);
-          --text:#f1f5f9;--muted:#64748b;--muted2:#94a3b8;
-          --green:#10b981;--red:#ef4444;--purple:#8b5cf6;
+          --border:rgba(255,255,255,.07);--blue:#3b82f6;--blue-soft:rgba(59,130,246,.12);
+          --blue-glow:rgba(59,130,246,.3);--gold:#f59e0b;--text:#f1f5f9;--muted:#64748b;
+          --muted2:#94a3b8;--green:#10b981;--red:#ef4444;--purple:#8b5cf6;
         }
         *{box-sizing:border-box;margin:0;padding:0;}
         html,body{height:100%;}
@@ -190,10 +236,10 @@ export default function Dashboard() {
         @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
         @keyframes slideIn{from{transform:translateX(-100%);}to{transform:translateX(0);}}
         .layout{display:flex;min-height:100vh;}
-        .sidebar{width:220px;flex-shrink:0;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;position:sticky;top:0;height:100vh;overflow:hidden;}
+        .sidebar{width:220px;flex-shrink:0;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:hidden;}
         .sidebar-top{padding:20px 16px;border-bottom:1px solid var(--border);}
-        .brand{font-family:'Outfit',sans-serif;font-size:18px;font-weight:800;background:linear-gradient(135deg,var(--blue),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px;cursor:pointer;}
-        .shop-name-side{font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .brand{font-family:'Outfit',sans-serif;font-size:18px;font-weight:800;background:linear-gradient(135deg,var(--blue),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;cursor:pointer;}
+        .shop-name-side{font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;}
         .sidebar-nav{padding:12px 10px;flex:1;overflow-y:auto;}
         .nav-section{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);padding:8px 8px 4px;}
         .nav-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:var(--muted2);cursor:pointer;transition:all .18s;background:none;border:none;width:100%;text-align:left;margin-bottom:2px;}
@@ -204,7 +250,7 @@ export default function Dashboard() {
         .avatar{width:34px;height:34px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,var(--gold),#b45309);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#1a0f00;}
         .foot-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
         .foot-role{font-size:10.5px;color:var(--muted);}
-        .logout-btn{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;flex-shrink:0;transition:color .2s;padding:4px;}
+        .logout-btn{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;transition:color .2s;padding:4px;}
         .logout-btn:hover{color:var(--red);}
         .topbar{background:rgba(13,21,38,.8);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:30;}
         .topbar-left{display:flex;align-items:center;gap:14px;}
@@ -212,12 +258,12 @@ export default function Dashboard() {
         .page-title{font-family:'Outfit',sans-serif;font-size:17px;font-weight:700;}
         .page-sub{font-size:12px;color:var(--muted);margin-top:1px;}
         .topbar-right{display:flex;align-items:center;gap:10px;}
-        .status-badge{display:flex;align-items:center;gap:7px;padding:7px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:999px;font-size:12px;font-weight:600;color:var(--green);cursor:pointer;}
+        .status-badge{display:flex;align-items:center;gap:7px;padding:7px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:999px;font-size:12px;font-weight:600;color:var(--green);}
         .status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
         @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
         .icon-btn-top{width:36px;height:36px;border-radius:10px;background:var(--card2);border:1px solid var(--border);color:var(--muted2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .2s;}
         .icon-btn-top:hover{border-color:var(--blue);color:var(--blue);}
-        .main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+        .main{flex:1;display:flex;flex-direction:column;min-width:0;}
         .content{padding:24px 28px;flex:1;overflow-y:auto;}
         .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
         .stat{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;transition:all .2s;position:relative;overflow:hidden;}
@@ -289,6 +335,21 @@ export default function Dashboard() {
         .toggle::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:all .25s;}
         .toggle.on{background:rgba(59,130,246,.2);border-color:rgba(59,130,246,.4);}
         .toggle.on::after{left:21px;background:var(--blue);}
+        .team-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;}
+        .upgrade-box{text-align:center;padding:32px;background:var(--card2);border-radius:14px;border:1px dashed var(--border);}
+        .gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+        .gallery-item{aspect-ratio:1;border-radius:14px;overflow:hidden;position:relative;border:1px solid var(--border);background:var(--card2);}
+        .gallery-item img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s;}
+        .gallery-item:hover img{transform:scale(1.05);}
+        .gallery-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.7),transparent 50%);opacity:0;transition:opacity .2s;display:flex;align-items:flex-end;padding:10px;gap:6px;}
+        .gallery-item:hover .gallery-overlay{opacity:1;}
+        .gallery-btn{padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:none;transition:all .2s;}
+        .gallery-btn.cover{background:var(--gold);color:#1a0f00;}
+        .gallery-btn.del{background:var(--red);color:#fff;}
+        .gallery-cover-badge{position:absolute;top:8px;left:8px;background:var(--gold);color:#1a0f00;font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:999px;}
+        .gallery-add{aspect-ratio:1;border-radius:14px;border:2px dashed rgba(59,130,246,.25);background:rgba(59,130,246,.04);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:#60a5fa;font-size:12px;font-weight:600;gap:6px;transition:all .2s;}
+        .gallery-add:hover{border-color:var(--blue);background:var(--blue-soft);}
+        .gallery-add .plus{font-size:28px;}
         .settings-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:14px;}
         .settings-card h3{font-size:15px;font-weight:700;margin-bottom:16px;}
         .settings-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);}
@@ -300,7 +361,6 @@ export default function Dashboard() {
         .btn.primary{background:linear-gradient(135deg,var(--blue),#1d4ed8);border:none;color:#fff;box-shadow:0 6px 20px -6px var(--blue-glow);}
         .btn.primary:hover{filter:brightness(1.08);transform:translateY(-1px);}
         .btn.danger{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.2);color:var(--red);}
-        .btn.danger:hover{background:rgba(239,68,68,.15);}
         .btn.sm{padding:7px 13px;font-size:12px;}
         .quick-actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;}
         .overlay{position:fixed;inset:0;z-index:60;background:rgba(5,10,20,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;}
@@ -309,7 +369,7 @@ export default function Dashboard() {
         .modal p{font-size:13px;color:var(--muted2);margin-bottom:20px;line-height:1.6;}
         .modal-field{margin-bottom:14px;}
         .modal-field label{display:block;font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;}
-        .modal-field input,.modal-field select{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;color:var(--text);outline:none;transition:all .2s;}
+        .modal-field input,.modal-field select{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;color:var(--text);outline:none;}
         .modal-field input:focus,.modal-field select:focus{border-color:var(--blue);}
         .modal-actions{display:flex;gap:10px;margin-top:20px;}
         .modal-actions .btn{flex:1;text-align:center;}
@@ -322,23 +382,19 @@ export default function Dashboard() {
         .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
         .empty{text-align:center;padding:32px;color:var(--muted);font-size:13px;}
         .empty-icon{font-size:32px;display:block;margin-bottom:10px;}
-        .team-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;}
-        .upgrade-box{text-align:center;padding:40px 20px;background:var(--card2);border-radius:14px;border:1px dashed var(--border);}
-        .upgrade-box .ub-icon{font-size:40px;margin-bottom:12px;}
-        .upgrade-box p{font-size:13px;color:var(--muted);line-height:1.7;}
         @media(max-width:1024px){.stats{grid-template-columns:repeat(2,1fr);}.grid2{grid-template-columns:1fr;}.week-grid{grid-template-columns:repeat(3,1fr);}}
         @media(max-width:768px){
           .sidebar{display:none;}
           .sidebar.mobile-open{display:flex;position:fixed;z-index:50;height:100vh;animation:slideIn .25s ease;}
           .mobile-overlay{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40;}
           .menu-btn{display:flex;}
-          .content{padding:16px;}
+          .content{padding:16px;padding-bottom:80px;}
           .week-grid{grid-template-columns:repeat(2,1fr);}
           .bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--card);border-top:1px solid var(--border);padding:8px 4px calc(8px + env(safe-area-inset-bottom));justify-content:space-around;}
-          .bn-item{display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--muted);font-size:9.5px;font-weight:600;padding:5px 8px;border-radius:10px;cursor:pointer;}
-          .bn-item .ic{font-size:18px;}
+          .bn-item{display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--muted);font-size:9px;font-weight:600;padding:5px 6px;border-radius:10px;cursor:pointer;}
+          .bn-item .ic{font-size:17px;}
           .bn-item.active{color:var(--blue);}
-          .content{padding-bottom:80px;}
+          .gallery-grid{grid-template-columns:repeat(2,1fr);}
           .team-row{grid-template-columns:1fr auto;}
         }
         @media(max-width:480px){.stats{grid-template-columns:repeat(2,1fr);}.week-grid{grid-template-columns:1fr;}}
@@ -371,7 +427,7 @@ export default function Dashboard() {
             <div className="avatar">{initials}</div>
             <div style={{minWidth:0}}>
               <div className="foot-name">{user?.user_metadata?.full_name || user?.email}</div>
-              <div className="foot-role">Owner</div>
+              <div className="foot-role">Owner · {barbershop?.plan || "freemium"}</div>
             </div>
             <button className="logout-btn"
               onClick={async () => { await supabase.auth.signOut(); window.location.href="/" }}>
@@ -386,14 +442,14 @@ export default function Dashboard() {
               <button className="menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
               <div>
                 <div className="page-title">
-                  {view==="overview"?"Επισκόπηση":view==="week"?"Εβδομάδα":view==="services"?"Υπηρεσίες":view==="hours"?"Ωράριο":view==="team"?"Ομάδα":"Ρυθμίσεις"}
+                  {navItems.find(n => n.v === view)?.label || "Dashboard"}
                 </div>
                 <div className="page-sub">{todayName} · {barbershop?.name || "BarberBook"}</div>
               </div>
             </div>
             <div className="topbar-right">
               <div className="status-badge"><span className="status-dot"/>Ανοιχτά</div>
-              <button className="icon-btn-top" onClick={() => setModal("new")}>+</button>
+              <button className="icon-btn-top" onClick={() => setModal("new")} title="Νέο Ραντεβού">+</button>
             </div>
           </div>
 
@@ -490,30 +546,23 @@ export default function Dashboard() {
                     await supabase.from("services").delete().eq("shop_id", barbershop.id)
                     await supabase.from("services").insert(
                       editServices.map(s => ({
-                        shop_id: barbershop.id,
-                        name: s.name,
-                        price: s.price,
-                        duration_minutes: s.duration,
+                        shop_id: barbershop.id, name: s.name,
+                        price: s.price, duration_minutes: s.duration,
                       }))
                     )
                     showToast("Αποθηκεύτηκε ✓")
                   }}>Αποθήκευση</button>
                 </div>
-                <div className="svc-head">
-                  <span>Υπηρεσία</span><span>Λεπτά</span><span>Τιμή €</span><span/>
-                </div>
+                <div className="svc-head"><span>Υπηρεσία</span><span>Λεπτά</span><span>Τιμή €</span><span/></div>
                 {editServices.map((s,i) => (
                   <div key={i} className="svc-row">
-                    <input className="svc-inp" value={s.name}
-                      onChange={e => { const n=[...editServices]; n[i].name=e.target.value; setEditServices(n) }}/>
-                    <input className="svc-inp" type="number" value={s.duration}
-                      onChange={e => { const n=[...editServices]; n[i].duration=+e.target.value; setEditServices(n) }}/>
-                    <input className="svc-inp gold" type="number" value={s.price}
-                      onChange={e => { const n=[...editServices]; n[i].price=+e.target.value; setEditServices(n) }}/>
-                    <button className="del-btn" onClick={() => setEditServices(p=>p.filter((_,j)=>j!==i))}>✕</button>
+                    <input className="svc-inp" value={s.name} onChange={e=>{const n=[...editServices];n[i].name=e.target.value;setEditServices(n)}}/>
+                    <input className="svc-inp" type="number" value={s.duration} onChange={e=>{const n=[...editServices];n[i].duration=+e.target.value;setEditServices(n)}}/>
+                    <input className="svc-inp gold" type="number" value={s.price} onChange={e=>{const n=[...editServices];n[i].price=+e.target.value;setEditServices(n)}}/>
+                    <button className="del-btn" onClick={()=>setEditServices(p=>p.filter((_,j)=>j!==i))}>✕</button>
                   </div>
                 ))}
-                <button className="add-svc-btn" onClick={() => setEditServices(p=>[...p,{name:"",duration:30,price:15}])}>
+                <button className="add-svc-btn" onClick={()=>setEditServices(p=>[...p,{name:"",duration:30,price:15}])}>
                   + Προσθήκη Υπηρεσίας
                 </button>
               </div>
@@ -529,8 +578,7 @@ export default function Dashboard() {
                     await supabase.from("working_hours").delete().eq("shop_id", barbershop.id)
                     await supabase.from("working_hours").insert(
                       hours.map((h, i) => ({
-                        shop_id: barbershop.id,
-                        day_of_week: i,
+                        shop_id: barbershop.id, day_of_week: i,
                         is_active: h.active,
                         open_time: h.active ? h.open : null,
                         close_time: h.active ? h.close : null,
@@ -545,15 +593,13 @@ export default function Dashboard() {
                     {h.active ? (
                       <>
                         <input type="time" className="hour-inp" value={h.open}
-                          onChange={e => { const n=[...hours]; n[i].open=e.target.value; setHours(n) }}/>
+                          onChange={e=>{const n=[...hours];n[i].open=e.target.value;setHours(n)}}/>
                         <span className="hour-sep">–</span>
                         <input type="time" className="hour-inp" value={h.close}
-                          onChange={e => { const n=[...hours]; n[i].close=e.target.value; setHours(n) }}/>
+                          onChange={e=>{const n=[...hours];n[i].close=e.target.value;setHours(n)}}/>
                       </>
-                    ) : (
-                      <span className="hour-closed">Κλειστά</span>
-                    )}
-                    <div className={`toggle ${h.active?"on":""}`} onClick={() => {
+                    ) : <span className="hour-closed">Κλειστά</span>}
+                    <div className={`toggle ${h.active?"on":""}`} onClick={()=>{
                       const n=[...hours]
                       n[i].active=!n[i].active
                       if(n[i].active&&!n[i].open){n[i].open="09:00";n[i].close="19:00"}
@@ -569,67 +615,94 @@ export default function Dashboard() {
               <div className="panel" style={{maxWidth:520}}>
                 <div className="panel-head">
                   <h2>👥 Ομάδα Barbers</h2>
-                  {barbershop?.num_barbers > 1 && (
-                    <button className="btn sm primary" onClick={async () => {
-                      if (!barbershop?.id) return
-                      await supabase.from("barbers").delete().eq("shop_id", barbershop.id)
-                      if (teamMembers.length > 0) {
-                        await supabase.from("barbers").insert(
-                          teamMembers.filter(b => b.name.trim()).map(b => ({
-                            shop_id: barbershop.id,
-                            name: b.name,
-                            role: b.role || "Barber",
-                          }))
-                        )
-                      }
-                      showToast("Αποθηκεύτηκε ✓")
-                    }}>Αποθήκευση</button>
+                  {maxBarbers > 1 && (
+                    <button className="btn sm primary" onClick={saveTeam}>Αποθήκευση</button>
                   )}
                 </div>
+                {maxBarbers === 1 ? (
+                  <div className="upgrade-box">
+                    <div style={{fontSize:36,marginBottom:12}}>👤</div>
+                    <p style={{fontSize:14,fontWeight:600,marginBottom:6}}>Πλάνο: {barbershop?.plan || "freemium"}</p>
+                    <p style={{fontSize:13,color:"var(--muted)",marginBottom:16}}>Αναβάθμισε σε Duo ή Team για να προσθέσεις barbers!</p>
+                    <button className="btn primary sm" onClick={() => window.location.href="/businesses"}>
+                      Αναβάθμισε Πλάνο →
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p style={{fontSize:13,color:"var(--muted)",marginBottom:16}}>
+                      Πλάνο <strong style={{color:"var(--text)"}}>{barbershop?.plan}</strong> · μέγιστο {maxBarbers} barbers
+                    </p>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:8,marginBottom:8,fontSize:10.5,color:"var(--muted)",textTransform:"uppercase",letterSpacing:".3px",fontWeight:600,padding:"0 2px"}}>
+                      <span>Όνομα</span><span>Ρόλος</span><span/>
+                    </div>
+                    {teamMembers.map((b,i) => (
+                      <div key={i} className="team-row">
+                        <input className="svc-inp" value={b.name} placeholder="π.χ. Νίκος Π."
+                          onChange={e=>{const n=[...teamMembers];n[i].name=e.target.value;setTeamMembers(n)}}/>
+                        <input className="svc-inp" value={b.role} placeholder="Barber"
+                          onChange={e=>{const n=[...teamMembers];n[i].role=e.target.value;setTeamMembers(n)}}/>
+                        <button className="del-btn" onClick={()=>setTeamMembers(p=>p.filter((_,j)=>j!==i))}>✕</button>
+                      </div>
+                    ))}
+                    {teamMembers.length < maxBarbers && (
+                      <button className="add-svc-btn"
+                        onClick={()=>setTeamMembers(p=>[...p,{name:"",role:"Barber"}])}>
+                        + Προσθήκη Barber ({teamMembers.length}/{maxBarbers})
+                      </button>
+                    )}
+                    {teamMembers.length >= maxBarbers && (
+                      <div style={{textAlign:"center",padding:"12px",background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.2)",borderRadius:10,marginTop:8,fontSize:13,color:"var(--gold)"}}>
+                        ✓ Έχεις φτάσει το όριο του πλάνου ({maxBarbers} barbers)
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
-               {(() => {
-  const plan = barbershop?.num_barbers || 1
-  const maxBarbers = plan === 1 ? 1 : plan === 2 ? 2 : 10
-  const canAdd = teamMembers.length < maxBarbers
-
-  return plan >= 1 ? (
-    <>
-      <p style={{fontSize:13,color:"var(--muted)",marginBottom:16,lineHeight:1.6}}>
-        Το πλάνο σου επιτρέπει <strong>{maxBarbers} barber{maxBarbers>1?"s":""}</strong>.
-      </p>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:8,marginBottom:8,fontSize:10.5,color:"var(--muted)",textTransform:"uppercase",letterSpacing:".3px",fontWeight:600,padding:"0 2px"}}>
-        <span>Όνομα</span><span>Ρόλος</span><span/>
-      </div>
-      <p style={{fontSize:13,color:"var(--muted)",marginBottom:16,lineHeight:1.6}}>
-        Πρόσθεσε τα ονόματα των barbers σου. Οι πελάτες θα μπορούν να επιλέξουν barber κατά την κράτηση.
-      </p>
-      {teamMembers.map((b, i) => (
-        <div key={i} className="team-row">
-          <input className="svc-inp" value={b.name} placeholder="π.χ. Νίκος Π."
-            onChange={e => { const n=[...teamMembers]; n[i].name=e.target.value; setTeamMembers(n) }}/>
-          <input className="svc-inp" value={b.role} placeholder="π.χ. Barber"
-            onChange={e => { const n=[...teamMembers]; n[i].role=e.target.value; setTeamMembers(n) }}/>
-          <button className="del-btn" onClick={() => setTeamMembers(p=>p.filter((_,j)=>j!==i))}>✕</button>
-        </div>
-      ))}
-      {canAdd ? (
-        <button className="add-svc-btn" onClick={() => setTeamMembers(p=>[...p,{name:"",role:"Barber"}])}>
-          + Προσθήκη Barber
-        </button>
-      ) : (
-        <div style={{textAlign:"center",padding:"16px",background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.2)",borderRadius:10,marginTop:8}}>
-          <p style={{fontSize:13,color:"var(--gold)"}}>
-            Έχεις φτάσει το όριο του πλάνου σου ({maxBarbers} barbers).
-          </p>
-          <button className="btn primary sm" style={{marginTop:10}}
-            onClick={() => window.location.href="/#pricing"}>
-            Αναβάθμισε Πλάνο →
-          </button>
-        </div>
-      )}
-    </>
-  ) : null
-})()}
+            {/* GALLERY */}
+            {view === "gallery" && (
+              <div className="panel">
+                <div className="panel-head">
+                  <h2>🖼️ Gallery Καταστήματος</h2>
+                  <span style={{fontSize:12,color:"var(--muted)"}}>{photos.length}/6 φωτογραφίες</span>
+                </div>
+                <p style={{fontSize:13,color:"var(--muted)",marginBottom:16}}>
+                  Η πρώτη φωτογραφία εμφανίζεται στην κάρτα του καταστήματος. Η <strong style={{color:"var(--gold)"}}>Cover</strong> εμφανίζεται στο hero του προφίλ.
+                </p>
+                <div className="gallery-grid">
+                  {photos.map(ph => (
+                    <div key={ph.id} className="gallery-item">
+                      <img src={ph.url} alt=""/>
+                      {ph.is_cover && <div className="gallery-cover-badge">⭐ Cover</div>}
+                      <div className="gallery-overlay">
+                        {!ph.is_cover && (
+                          <button className="gallery-btn cover" onClick={() => setCover(ph.id)}>⭐ Cover</button>
+                        )}
+                        <button className="gallery-btn del" onClick={() => deletePhoto(ph.id)}>🗑️ Διαγραφή</button>
+                      </div>
+                    </div>
+                  ))}
+                  {photos.length < 6 && (
+                    <label className="gallery-add">
+                      {uploadingPhoto ? (
+                        <span style={{fontSize:13}}>⏳ Ανεβαίνει...</span>
+                      ) : (
+                        <>
+                          <span className="plus">+</span>
+                          <span>Προσθήκη Φωτογραφίας</span>
+                          <input type="file" accept="image/*" style={{display:"none"}}
+                            onChange={async e => {
+                              const f = e.target.files?.[0]
+                              if (f) await uploadPhoto(f)
+                              e.target.value = ""
+                            }}/>
+                        </>
+                      )}
+                    </label>
+                  )}
+                </div>
               </div>
             )}
 
@@ -647,8 +720,15 @@ export default function Dashboard() {
                     <h3>💈 Στοιχεία Κουρείου</h3>
                     <div className="settings-row"><span className="settings-label">Όνομα</span><span className="settings-val">{barbershop.name}</span></div>
                     <div className="settings-row"><span className="settings-label">Πόλη</span><span className="settings-val">{barbershop.city}</span></div>
-                    <div className="settings-row"><span className="settings-label">Barbers</span><span className="settings-val">{barbershop.num_barbers || 1}</span></div>
-                    <div className="settings-row"><span className="settings-label">Βαθμολογία</span><span className="settings-val">⭐ {barbershop.rating}</span></div>
+                    <div className="settings-row"><span className="settings-label">Πλάνο</span><span className="settings-val">{barbershop.plan || "freemium"}</span></div>
+                    <div className="settings-row"><span className="settings-label">Barbers</span><span className="settings-val">{maxBarbers}</span></div>
+                    <div className="settings-row">
+                      <span className="settings-label">Link Κουρείου</span>
+                      <button className="btn sm" onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/barbershops/${barbershop.id}`)
+                        showToast("Link αντιγράφηκε ✓")
+                      }}>📋 Αντιγραφή Link</button>
+                    </div>
                   </div>
                 )}
                 <div className="settings-card">
@@ -741,7 +821,9 @@ export default function Dashboard() {
             <div className="modal-field">
               <label>Υπηρεσία</label>
               <select value={newService} onChange={e=>setNewService(e.target.value)}>
-                {(editServices.length > 0 ? editServices.map(s=>s.name) : SERVICES).map(s=><option key={s} value={s}>{s}</option>)}
+                {(editServices.length>0?editServices.map(s=>s.name):SERVICES).map(s=>(
+                  <option key={s} value={s}>{s}</option>
+                ))}
               </select>
             </div>
             <div className="modal-actions">
@@ -821,6 +903,7 @@ function ApptCard({ appt, onCancel, onReschedule }: any) {
         <div className="appt-name">{appt.customer_name}</div>
         <div className="appt-svc">{appt.service}</div>
         {appt.customer_email && <div className="appt-contact">{appt.customer_email}</div>}
+        {appt.customer_phone && <div className="appt-contact">📱 {appt.customer_phone}</div>}
       </div>
       <span className={`badge ${appt.status||"pending"}`}>
         {appt.status==="cancelled"?"Ακυρώθηκε":appt.status==="confirmed"?"✅ Επιβ.":"⏳ Εκκρ."}

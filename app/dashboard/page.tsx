@@ -136,17 +136,29 @@ export default function Dashboard() {
   }
 
   async function saveTeam() {
-    if (!barbershop?.id) return
-    await supabase.from("barbers").delete().eq("shop_id", barbershop.id)
-    if (teamMembers.filter(b => b.name.trim()).length > 0) {
-      await supabase.from("barbers").insert(
-        teamMembers.filter(b => b.name.trim()).map(b => ({
-          shop_id: barbershop.id, name: b.name, role: b.role || "Barber",
-        }))
-      )
-    }
-    showToast("Αποθηκεύτηκε ✓")
+  if (!barbershop?.id) { 
+    showToast("Δεν βρέθηκε κατάστημα!")
+    return 
   }
+  
+  const validBarbers = teamMembers.filter(b => b.name.trim())
+  console.log("Saving barbers:", validBarbers, "for shop:", barbershop.id)
+  
+  const { error: delErr } = await supabase
+    .from("barbers").delete().eq("shop_id", barbershop.id)
+  console.log("Delete error:", delErr)
+  
+  if (validBarbers.length > 0) {
+    const { data, error: insErr } = await supabase.from("barbers").insert(
+      validBarbers.map(b => ({
+        shop_id: barbershop.id, name: b.name, role: b.role || "Barber",
+      }))
+    ).select()
+    console.log("Insert result:", data, "Insert error:", insErr)
+    if (insErr) { showToast("Error: " + insErr.message); return }
+  }
+  showToast("Αποθηκεύτηκε ✓")
+}
 
   async function uploadPhoto(file: File) {
     if (!barbershop?.id || !user) return

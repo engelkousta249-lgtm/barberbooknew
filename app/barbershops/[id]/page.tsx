@@ -194,7 +194,25 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
         }
       })
     })
-
+// Στείλε emails
+await fetch("/api/send-email", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    type: "new_appointment",
+    to: email,
+    data: {
+      shopName: shop.name,
+      shopEmail: shop.email,
+      customerName: name,
+      customerEmail: email,
+      customerPhone: phone,
+      service: svc?.name,
+      date: fmtDate(day.date),
+      time: time,
+    }
+  })
+})
     setDone(true)
     setSubmitting(false)
   }
@@ -268,6 +286,7 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
         .pf-empty{aspect-ratio:1;border-radius:13px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:24px;opacity:0.3;}
         .map-card{margin:0 16px 8px;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:var(--navy-800);}
         .map-visual{height:150px;position:relative;overflow:hidden;background:linear-gradient(var(--navy-700) 1px,transparent 1px) 0 0/30px 30px,linear-gradient(90deg,var(--navy-700) 1px,transparent 1px) 0 0/30px 30px,var(--navy-600);}
+        .map-iframe{width:100%;height:170px;border:0;display:block;filter:grayscale(0.15) contrast(1.05);}
         .map-visual::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 55%,rgba(59,123,255,.16),transparent 60%);}
         .map-road-h{position:absolute;background:rgba(255,255,255,.05);top:38%;left:0;right:0;height:2px;}
         .map-road-v1{position:absolute;background:rgba(255,255,255,.05);left:32%;top:0;bottom:0;width:2px;}
@@ -426,12 +445,13 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
             {/* MAP */}
             <div className="section-title">📍 Τοποθεσία</div>
             <div className="map-card">
-              <div className="map-visual">
-                <div className="map-road-h"/>
-                <div className="map-road-v1"/>
-                <div className="map-road-v2"/>
-                <div className="map-pin">📍</div>
-              </div>
+              <iframe
+                className="map-iframe"
+                src={`https://www.google.com/maps?q=${encodeURIComponent((shop.address||"") + " " + (shop.city||""))}&output=embed`}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Χάρτης τοποθεσίας"
+              />
               <div className="map-info">
                 <div>
                   <div className="map-address">{shop.address}</div>

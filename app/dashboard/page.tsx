@@ -117,29 +117,77 @@ export default function Dashboard() {
   }, [])
 
   async function handleCancel(id: string) {
-    await supabase.from("appointments").update({ status: "cancelled" }).eq("id", id)
-    setAppointments(prev => prev.map(a => a.id === id ? {...a, status:"cancelled"} : a))
-    setModal(null)
-    showToast("Το ραντεβού ακυρώθηκε")
+  const appt = appointments.find(a => a.id === id)
+  await supabase.from("appointments").update({ status: "cancelled" }).eq("id", id)
+  setAppointments(prev => prev.map(a => a.id === id ? {...a, status:"cancelled"} : a))
+  setModal(null)
+  showToast("Το ραντεβού ακυρώθηκε")
+
+  // Email ακύρωσης
+  if (appt) {
+    await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "cancel_appointment",
+        to: appt.customer_email,
+        data: {
+          shopName: barbershop?.name,
+          customerName: appt.customer_name,
+          service: appt.service,
+          date: appt.date,
+          time: appt.time,
+        }
+      })
+    })
   }
+}
 
   async function handleReschedule() {
-    if (!newDate || !newTime) { showToast("Επέλεξε ημερομηνία και ώρα!"); return }
+    if (!selectedAppt) return
+    if (!newDate || !newTime) {
+      showToast("Επέλεξε ημερομηνία και ώρα!")
+      return
+    }
+
+    const appt = appointments.find(a => a.id === selectedAppt.id)
+    if (!appt) return
+
     await supabase.from("appointments")
-      .update({ date: newDate, time: newTime, status: "pending" })
+      .update({ date: newDate, time: newTime })
       .eq("id", selectedAppt.id)
+
     setAppointments(prev => prev.map(a =>
-      a.id === selectedAppt.id ? {...a, date:newDate, time:newTime, status:"pending"} : a
+      a.id === selectedAppt.id ? { ...a, date: newDate, time: newTime } : a
     ))
-    setModal(null); setNewDate(""); setNewTime("")
-    showToast("Το ραντεβού αλλάχτηκε ✓")
+
+    setModal(null)
+    setNewDate("")
+    setNewTime("")
+    showToast("Η αλλαγή αποθηκεύτηκε ✓")
+
+    await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "reschedule_appointment",
+        to: appt.customer_email,
+        data: {
+          shopName: barbershop?.name,
+          customerName: appt.customer_name,
+          service: appt.service,
+          newDate: newDate,
+          newTime: newTime,
+        }
+      })
+    })
   }
 
   async function saveTeam() {
-  if (!barbershop?.id) { 
-    showToast("Δεν βρέθηκε κατάστημα!")
-    return 
-  }
+    if (!barbershop?.id) { 
+      showToast("Δεν βρέθηκε κατάστημα!")
+      return 
+    }
   
   const validBarbers = teamMembers.filter(b => b.name.trim())
   console.log("Saving barbers:", validBarbers, "for shop:", barbershop.id)

@@ -49,14 +49,25 @@ export default function Dashboard() {
   const [photos, setPhotos] = useState<{id:string,url:string,is_cover:boolean}[]>([])
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
+  const showToast = (message: string) => {
+    setToast(message)
+    window.setTimeout(() => setToast(""), 3200)
+  }
+
+  async function handleUpgrade(plan: string) {
+    if (!barbershop?.id) return
+    const res = await fetch("/api/create-checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan, barbershopId: barbershop.id })
+    })
+    const { url } = await res.json()
+    if (url) window.location.href = url
+  }
+
   const today = new Date().toISOString().split("T")[0]
   const todayName = DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1]
   const SERVICES = ["Κούρεμα","Κούρεμα + Γένια","Ξύρισμα + Styling","Full Service","Fade","Παιδικό Κούρεμα"]
-
-  const showToast = (msg: string) => {
-    setToast(msg)
-    setTimeout(() => setToast(""), 2500)
-  }
 
   useEffect(() => {
     async function init() {
@@ -115,6 +126,23 @@ export default function Dashboard() {
     }
     init()
   }, [])
+async function handleCancelPlan() {
+  if (!barbershop?.id) return
+  const confirmed = window.confirm(
+    "Σίγουρα θέλεις να ακυρώσεις το πλάνο σου; Θα υποβαθμιστείς σε Freemium στο τέλος της τρέχουσας περιόδου."
+  )
+  if (!confirmed) return
+
+  const { error } = await supabase
+    .from("barbershops")
+    .update({ plan: "freemium", plan_renews_at: null })
+    .eq("id", barbershop.id)
+
+  if (error) { showToast("Κάτι πήγε στραβά!"); return }
+
+  setBarbershop((prev: any) => ({ ...prev, plan: "freemium", plan_renews_at: null }))
+  showToast("Το πλάνο ακυρώθηκε — είσαι πλέον σε Freemium")
+}
 
   async function handleCancel(id: string) {
   const appt = appointments.find(a => a.id === id)
@@ -122,6 +150,7 @@ export default function Dashboard() {
   setAppointments(prev => prev.map(a => a.id === id ? {...a, status:"cancelled"} : a))
   setModal(null)
   showToast("Το ραντεβού ακυρώθηκε")
+
 
   // Email ακύρωσης
   if (appt) {
@@ -188,7 +217,23 @@ export default function Dashboard() {
       showToast("Δεν βρέθηκε κατάστημα!")
       return 
     }
-  
+  async function handleCancelPlan() {
+  if (!barbershop?.id) return
+  const confirmed = window.confirm(
+    "Σίγουρα θέλεις να ακυρώσεις το πλάνο σου; Θα υποβαθμιστείς σε Freemium στο τέλος της τρέχουσας περιόδου."
+  )
+  if (!confirmed) return
+
+  const { error } = await supabase
+    .from("barbershops")
+    .update({ plan: "freemium", plan_renews_at: null })
+    .eq("id", barbershop.id)
+
+  if (error) { showToast("Κάτι πήγε στραβά!"); return }
+
+  setBarbershop((prev: any) => ({ ...prev, plan: "freemium", plan_renews_at: null }))
+  showToast("Το πλάνο ακυρώθηκε — είσαι πλέον σε Freemium")
+}
   const validBarbers = teamMembers.filter(b => b.name.trim())
   console.log("Saving barbers:", validBarbers, "for shop:", barbershop.id)
   
@@ -263,14 +308,15 @@ export default function Dashboard() {
   const maxBarbers = barbershop?.plan === "duo" ? 2 : barbershop?.plan === "team" ? 10 : 1
 
   const navItems = [
-    {v:"overview", icon:"⊞", label:"Επισκόπηση"},
-    {v:"week", icon:"📅", label:"Εβδομάδα"},
-    {v:"services", icon:"✂️", label:"Υπηρεσίες"},
-    {v:"hours", icon:"🕒", label:"Ωράριο"},
-    {v:"team", icon:"👥", label:"Ομάδα"},
-    {v:"gallery", icon:"🖼️", label:"Gallery"},
-    {v:"settings", icon:"⚙️", label:"Ρυθμίσεις"},
-  ]
+  {v:"overview", icon:"⊞", label:"Επισκόπηση"},
+  {v:"week", icon:"📅", label:"Εβδομάδα"},
+  {v:"services", icon:"✂️", label:"Υπηρεσίες"},
+  {v:"hours", icon:"🕒", label:"Ωράριο"},
+  {v:"team", icon:"👥", label:"Ομάδα"},
+  {v:"gallery", icon:"🖼️", label:"Gallery"},
+  {v:"settings", icon:"⚙️", label:"Ρυθμίσεις"},
+  {v:"plan", icon:"💳", label:"Πλάνο"},
+]
 
   if (loading) return (
     <div style={{background:"#0a0f1e",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter,sans-serif",color:"#64748b",fontSize:16}}>
@@ -804,28 +850,103 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* BOTTOM NAV */}
-      <nav className="bottom-nav">
-        {navItems.map(n => (
-          <button key={n.v} className={`bn-item ${view===n.v?"active":""}`} onClick={() => setView(n.v)}>
-            <span className="ic">{n.icon}</span>{n.label}
-          </button>
-        ))}
-      </nav>
+            {/* PLAN */}
+            {view === "plan" && (
+              <>
+                                <div className="settings-card" style={{
+                  background:"linear-gradient(135deg, rgba(59,130,246,.08), rgba(245,158,11,.06))",
+                  border:"1px solid rgba(59,130,246,.25)"
+                }}>
+                  <h3>💳 Τρέχον Πλάνο</h3>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:8}}>
+                    <div>
+                      <div style={{fontFamily:"'Outfit',sans-serif",fontSize:26,fontWeight:800,textTransform:"capitalize"}}>
+                        {barbershop?.plan || "Freemium"}
+                      </div>
+                      <div style={{fontSize:12.5,color:"var(--muted)",marginTop:4}}>
+                        {maxBarbers} {maxBarbers===1?"barber":"barbers"} · Ενεργό
+                      </div>
+                    </div>
+                    <div style={{width:52,height:52,borderRadius:14,background:"rgba(16,185,129,.12)",border:"1px solid rgba(16,185,129,.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>
+                      ✅
+                    </div>
+                  </div>
 
-      {/* CANCEL MODAL */}
-      {modal==="cancel" && selectedAppt && (
-        <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setModal(null)}}>
-          <div className="modal">
-            <h3>❌ Ακύρωση Ραντεβού</h3>
-            <p>Είσαι σίγουρος ότι θέλεις να ακυρώσεις το ραντεβού του <strong>{selectedAppt.customer_name}</strong> στις {selectedAppt.date} {selectedAppt.time};</p>
-            <div className="modal-actions">
-              <button className="btn" onClick={()=>setModal(null)}>Πίσω</button>
-              <button className="btn danger" onClick={()=>handleCancel(selectedAppt.id)}>Ακύρωση</button>
-            </div>
-          </div>
-        </div>
-      )}
+                  {barbershop?.plan && barbershop.plan !== "freemium" && (
+                    <>
+                      <div style={{marginTop:18,paddingTop:16,borderTop:"1px solid var(--border)"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12.5}}>
+                          <span style={{color:"var(--muted)"}}>Επόμενη ανανέωση</span>
+                          <span style={{fontWeight:700}}>
+                            {barbershop.plan_renews_at
+                              ? new Date(barbershop.plan_renews_at).toLocaleDateString("el-GR",{day:"2-digit",month:"long",year:"numeric"})
+                              : "—"}
+                          </span>
+                        </div>
+                        {barbershop.plan_renews_at && (
+                          <div style={{fontSize:11.5,color:"var(--muted)",marginTop:4}}>
+                            {Math.max(0, Math.ceil((new Date(barbershop.plan_renews_at).getTime() - Date.now()) / 86400000))} μέρες απομένουν
+                          </div>
+                        )}
+                      </div>
+                      <div style={{marginTop:16,display:"flex",gap:10}}>
+                        <button className="btn danger sm" onClick={handleCancelPlan}>
+                          Ακύρωση Πλάνου
+                        </button>
+                        <button className="btn sm" onClick={() => showToast("Το ιστορικό πληρωμών έρχεται σύντομα")}>
+                          📄 Ιστορικό Πληρωμών
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+
+                {(!barbershop?.plan || barbershop.plan === "freemium") && (
+                  <div className="settings-card">
+                    <h3>🚀 Αναβάθμισε το Πλάνο σου</h3>
+                    <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:12}}>
+                      {[
+                        {key:"solo", name:"Solo", price:"€20/μήνα", desc:"1 barber · Απεριόριστες κρατήσεις", icon:"👤"},
+                        {key:"duo", name:"Duo", price:"€24/μήνα", desc:"2 barbers · Απεριόριστες κρατήσεις", icon:"👥", popular:true},
+                        {key:"team", name:"Team", price:"€28/μήνα", desc:"3-10 barbers · Πλήρης διαχείριση", icon:"🏆"},
+                      ].map(p => (
+                        <div key={p.key} style={{
+                          position:"relative", display:"flex", justifyContent:"space-between", alignItems:"center",
+                          padding:"16px", background:"var(--card2)",
+                          border: p.popular ? "1.5px solid rgba(245,158,11,.4)" : "1px solid var(--border)",
+                          borderRadius:14
+                        }}>
+                          {p.popular && (
+                            <span style={{
+                              position:"absolute", top:-9, left:14, background:"var(--gold)", color:"#1a0f00",
+                              fontSize:9.5, fontWeight:800, padding:"3px 9px", borderRadius:999
+                            }}>ΔΗΜΟΦΙΛΕΣ</span>
+                          )}
+                          <div style={{display:"flex",alignItems:"center",gap:12}}>
+                            <div style={{fontSize:22}}>{p.icon}</div>
+                            <div>
+                              <div style={{fontWeight:700,fontSize:14.5}}>{p.name}</div>
+                              <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>{p.desc}</div>
+                            </div>
+                          </div>
+                          <div style={{textAlign:"right"}}>
+                            <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:16,color:"var(--gold)",marginBottom:6}}>{p.price}</div>
+                            <button className="btn primary sm" onClick={() => handleUpgrade(p.key)}>
+                              Αναβάθμιση →
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          
+        
+      
+
 
       {/* RESCHEDULE MODAL */}
       {modal==="reschedule" && selectedAppt && (

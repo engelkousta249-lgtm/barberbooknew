@@ -132,6 +132,7 @@ export default function Home() {
 
   useEffect(() => {
     supabase.from("barbershops").select("*")
+     .eq("is_active", true)
       .order("created_at", { ascending: false })
       .then(async ({ data }) => {
         if (data) {

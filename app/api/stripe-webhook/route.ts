@@ -2,8 +2,7 @@ import Stripe from "stripe"
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
-const stripe = new Stripe("sk_test_51TuaQsK25ZaTzOJhEyXttqGHnYltCStZlNohradGqVrNHZ4RuyvDM6TuRFgpmb6ZLl4nDR7GVfNjyAMnzXw2horY00oFfzV5Yu")
-
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
   "https://xcfkhdjiragblsiqetes.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjZmtoZGppcmFnYmxzaXFldGVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2OTY0ODYsImV4cCI6MjA5NzI3MjQ4Nn0.EkmgRuYzrvF0A_pgT9vaOouMRKeQ2kasPZxpoIuCgeE"

@@ -46,8 +46,8 @@ export async function POST(req: Request) {
         quantity: 1,
       },
     ],
-    success_url: `${process.env.NEXT_PUBLIC_URL || "https://barberbooknew-eqfi.vercel.app"}/onboarding/${plan}?success=true&shop=${barbershopId}`,
-    cancel_url: `${process.env.NEXT_PUBLIC_URL || "https://barberbooknew-eqfi.vercel.app"}/onboarding/${plan}?cancelled=true`,
+    success_url: `https://barberbook.life/onboarding/${plan}?success=true&shop=${barbershopId}`,
+cancel_url: `https://barberbook.life/onboarding/${plan}?cancelled=true`,
     metadata: { plan, barbershopId },
   })
 

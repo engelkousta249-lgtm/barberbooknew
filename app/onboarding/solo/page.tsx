@@ -51,26 +51,32 @@ export default function SoloOnboarding() {
   const TOTAL_STEPS = 6 // +1 για πληρωμή
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) { setEmail(user.email||""); setStep(2) }
-    })
+  supabase.auth.getUser().then(({ data: { user } }) => {
+    if (user) { setEmail(user.email||""); setStep(2) }
+  })
 
-    // Check αν ήρθε από Stripe success
-    const params = new URLSearchParams(window.location.search)
-    if (params.get("success") === "true") {
-      const sid = params.get("shop")
-      if (sid) {
-        setShopId(sid)
-        setShopLink(`${window.location.origin}/barbershops/${sid}`)
-        setDone(true)
-        window.history.replaceState({}, "", "/onboarding/solo")
-      }
+  const params = new URLSearchParams(window.location.search)
+
+  if (params.get("success") === "true") {
+    const sid = params.get("shop")
+    if (sid) {
+      // Ενεργοποίησε το κατάστημα
+      supabase.from("barbershops")
+        .update({ is_active: true })
+        .eq("id", sid)
+        .then(() => {
+          setShopLink(`${window.location.origin}/barbershops/${sid}`)
+          setDone(true)
+          window.history.replaceState({}, "", "/onboarding/solo") // άλλαξε σε /duo ή /team
+        })
     }
-    if (params.get("cancelled") === "true") {
-      setError("Η πληρωμή ακυρώθηκε. Δοκίμασε ξανά.")
-      window.history.replaceState({}, "", "/onboarding/solo")
-    }
-  }, [])
+  }
+
+  if (params.get("cancelled") === "true") {
+    setError("Η πληρωμή ακυρώθηκε. Δοκίμασε ξανά.")
+    window.history.replaceState({}, "", "/onboarding/solo") // άλλαξε σε /duo ή /team
+  }
+}, [])
 
   function canNext() {
     if (step===1) return email.trim()!==""&&password.length>=6

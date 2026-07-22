@@ -9,8 +9,8 @@ export async function POST(req: Request) {
   try {
     if (type === "welcome_owner") {
       await resend.emails.send({
-        from: "BarberBook <onboarding@resend.dev>",
-        to: "engelkousta249@gmail.com",
+       from: "BarberBook <noreply@barberbook.life>",
+        to,
         subject: "Καλώς ήρθες στο BarberBook! 💈",
         html: `
           <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#0a0f1e;color:#f1f5f9;border-radius:16px;overflow:hidden;">
@@ -44,8 +44,8 @@ export async function POST(req: Request) {
     if (type === "new_appointment") {
       // Email στο κουρείο
       await resend.emails.send({
-        from: "BarberBook <onboarding@resend.dev>",
-        to: "engelkousta249@gmail.com",
+        from: "BarberBook <noreply@barberbook.life>",
+        to,
         subject: `🔔 Νέο Ραντεβού — ${data.customerName}`,
         html: `
           <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#0a0f1e;color:#f1f5f9;border-radius:16px;overflow:hidden;">
@@ -84,8 +84,8 @@ export async function POST(req: Request) {
 
       // Email στον πελάτη
       await resend.emails.send({
-        from: "BarberBook <onboarding@resend.dev>",
-        to: "engelkousta249@gmail.com",
+        from: "BarberBook <noreply@barberbook.life>",
+       to,
         subject: `✅ Το ραντεβού σου επιβεβαιώθηκε!`,
         html: `
           <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#0a0f1e;color:#f1f5f9;border-radius:16px;overflow:hidden;">
@@ -121,8 +121,8 @@ export async function POST(req: Request) {
 
     if (type === "cancel_appointment") {
       await resend.emails.send({
-        from: "BarberBook <onboarding@resend.dev>",
-        to: "engelkousta249@gmail.com",
+        from: "BarberBook <noreply@barberbook.life>",
+        to,
         subject: `❌ Ακύρωση Ραντεβού — ${data.customerName}`,
         html: `
           <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#0a0f1e;color:#f1f5f9;border-radius:16px;overflow:hidden;">
@@ -156,8 +156,8 @@ export async function POST(req: Request) {
 
     if (type === "reschedule_appointment") {
       await resend.emails.send({
-        from: "BarberBook <onboarding@resend.dev>",
-        to: "engelkousta249@gmail.com",
+        from: "BarberBook <noreply@barberbook.life>",
+        to,
         subject: `🔄 Αλλαγή Ώρας — ${data.customerName}`,
         html: `
           <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#0a0f1e;color:#f1f5f9;border-radius:16px;overflow:hidden;">

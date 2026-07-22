@@ -175,25 +175,7 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
     })
     if (error) { showToast("Κάτι πήγε στραβά!"); setSubmitting(false); return }
 
-    await fetch("/api/send-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "new_appointment",
-        to: email,
-        data: {
-          shopName: shop.name,
-          shopEmail: shop.email,
-          customerName: name,
-          customerEmail: email,
-          customerPhone: phone,
-          service: svc?.name,
-          barber: barberName,
-          date: fmtDate(day.date),
-          time: time,
-        }
-      })
-    })
+    
 // Στείλε emails
 await fetch("/api/send-email", {
   method: "POST",

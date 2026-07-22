@@ -55,24 +55,36 @@ export default function TeamOnboarding() {
 
   const TOTAL_STEPS = 6
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) { setEmail(user.email||""); setStep(2) }
-    })
-    const params = new URLSearchParams(window.location.search)
-    if (params.get("success") === "true") {
-      const sid = params.get("shop")
-      if (sid) {
-        setShopLink(`${window.location.origin}/barbershops/${sid}`)
-        setDone(true)
-        window.history.replaceState({}, "", "/onboarding/team")
-      }
+ useEffect(() => {
+  supabase.auth.getUser().then(({ data: { user } }) => {
+    if (user) { setEmail(user.email||""); setStep(2) }
+  })
+  const params = new URLSearchParams(window.location.search)
+  if (params.get("success") === "true") {
+    const sid = params.get("shop")
+    if (sid) {
+      supabase.from("barbershops")
+        .update({ is_active: true })
+        .eq("id", sid)
+        .then(() => {
+          setShopLink(`${window.location.origin}/barbershops/${sid}`)
+          setDone(true)
+          window.history.replaceState({}, "", "/onboarding/team")
+        })
     }
-    if (params.get("cancelled") === "true") {
-      setError("Η πληρωμή ακυρώθηκε. Δοκίμασε ξανά.")
-      window.history.replaceState({}, "", "/onboarding/team")
-    }
-  }, [])
+  }
+  if (params.get("cancelled") === "true") {
+    setError("Η πληρωμή ακυρώθηκε. Δοκίμασε ξανά.")
+    window.history.replaceState({}, "", "/onboarding/team")
+  }
+
+    
+  
+  if (params.get("cancelled") === "true") {
+    setError("Η πληρωμή ακυρώθηκε. Δοκίμασε ξανά.")
+    window.history.replaceState({}, "", "/onboarding/team")
+  }
+}, [])
 
   function canNext() {
     if (step===1) return email.trim()!==""&&password.length>=6

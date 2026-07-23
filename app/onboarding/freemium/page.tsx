@@ -81,11 +81,18 @@ export default function FreemiumOnboarding() {
         userId = existingUser.id
       } else {
         const { data: authData, error: authError } = await supabase.auth.signUp({
-          email, password, options: { data: { full_name: shopName } }
-        })
-        if (authError) { setError(authError.message); setLoading(false); return }
-        if (!authData.user?.id) { setError("Σφάλμα εγγραφής!"); setLoading(false); return }
-        userId = authData.user.id
+  email, password, options:{data:{full_name:shopName}}
+})
+if (authError) { setError(authError.message); setLoading(false); return }
+
+// Αν χρειάζεται επαλήθευση email
+if (!authData.user?.id && authData.session === null) {
+  setError("Έχουμε στείλει email επαλήθευσης στο " + email + ". Επαλήθευσε το email σου και ξαναπροσπάθησε!")
+  setLoading(false)
+  return
+}
+
+if (!authData.user?.id) { setError("Σφάλμα εγγραφής!"); setLoading(false); return }
       }
 
       let logoUrl:string|null = null

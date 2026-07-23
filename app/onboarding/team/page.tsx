@@ -114,6 +114,8 @@ export default function TeamOnboarding() {
         if (authError) { setError(authError.message); setLoading(false); return }
         if (!authData.user?.id) { setError("Σφάλμα!"); setLoading(false); return }
         userId=authData.user.id
+        // Auto-login μετά το signUp για να μείνει συνδεδεμένος
+await supabase.auth.signInWithPassword({ email, password })
       }
 
       let logoUrl:string|null=null

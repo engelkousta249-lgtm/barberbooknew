@@ -99,12 +99,14 @@ export default function DuoOnboarding() {
       const { data: { user: existingUser } } = await supabase.auth.getUser()
       if (existingUser) { userId=existingUser.id }
       else {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email, password, options:{data:{full_name:shopName}}
-        })
-        if (authError) { setError(authError.message); setLoading(false); return }
-        if (!authData.user?.id) { setError("Σφάλμα!"); setLoading(false); return }
-        userId=authData.user.id
+       const { data: authData, error: authError } = await supabase.auth.signUp({
+  email, password, options:{data:{full_name:shopName}}
+})
+if (authError) { setError(authError.message); setLoading(false); return }
+if (!authData.user?.id) { setError("Σφάλμα!"); setLoading(false); return }
+userId = authData.user.id
+// Auto-login μετά το signUp για να μείνει συνδεδεμένος
+await supabase.auth.signInWithPassword({ email, password })
       }
 
       let logoUrl:string|null=null

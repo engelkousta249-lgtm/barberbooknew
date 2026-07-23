@@ -54,27 +54,23 @@ export default function SoloOnboarding() {
   supabase.auth.getUser().then(({ data: { user } }) => {
     if (user) { setEmail(user.email||""); setStep(2) }
   })
-
   const params = new URLSearchParams(window.location.search)
-
   if (params.get("success") === "true") {
     const sid = params.get("shop")
     if (sid) {
-      // Ενεργοποίησε το κατάστημα
       supabase.from("barbershops")
         .update({ is_active: true })
         .eq("id", sid)
         .then(() => {
           setShopLink(`${window.location.origin}/barbershops/${sid}`)
           setDone(true)
-          window.history.replaceState({}, "", "/onboarding/solo") // άλλαξε σε /duo ή /team
+          window.history.replaceState({}, "", "/onboarding/solo") 
         })
     }
   }
-
   if (params.get("cancelled") === "true") {
     setError("Η πληρωμή ακυρώθηκε. Δοκίμασε ξανά.")
-    window.history.replaceState({}, "", "/onboarding/solo") // άλλαξε σε /duo ή /team
+    window.history.replaceState({}, "", "/onboarding/solo") 
   }
 }, [])
 
@@ -108,6 +104,8 @@ export default function SoloOnboarding() {
         if (authError) { setError(authError.message); setLoading(false); return }
         if (!authData.user?.id) { setError("Σφάλμα εγγραφής!"); setLoading(false); return }
         userId=authData.user.id
+        // Auto-login μετά το signUp για να μείνει συνδεδεμένος
+await supabase.auth.signInWithPassword({ email, password })
       }
 
       let logoUrl:string|null=null
@@ -262,7 +260,21 @@ export default function SoloOnboarding() {
         .sc-row:last-child{border-bottom:none;}
         .sc-label{color:var(--muted2);}
         .sc-val{font-weight:700;}
-        @media(max-width:768px){.container{grid-template-columns:1fr;}.sidebar{display:none;}.card{padding:24px 20px;}.field-row{grid-template-columns:1fr;}}
+       @media(max-width:768px){
+  .container{grid-template-columns:1fr;}
+  .sidebar{display:none;}
+  .card{padding:20px 16px;}
+  .field-row{grid-template-columns:1fr;}
+  .success{padding:10px 0;}
+  .success h2{font-size:17px;}
+  .success p{font-size:13px;}
+  .link-box{flex-direction:column;padding:12px;gap:8px;}
+  .link-box input{width:100%;font-size:11px;}
+  .copy-btn{width:100%;padding:10px;text-align:center;font-size:13px;}
+  .success-card{padding:12px;}
+  .sc-row{font-size:12px;}
+  .check-wrap{width:60px;height:60px;font-size:26px;}
+}{.container{grid-template-columns:1fr;}.sidebar{display:none;}.card{padding:24px 20px;}.field-row{grid-template-columns:1fr;}}
       `}</style>
 
       <nav className="nav">
@@ -423,9 +435,16 @@ export default function SoloOnboarding() {
                 <h2>Το κουρείο σου είναι ζωντανό! 🎉</h2>
                 <p>Μοιράσου το link σου στο Instagram bio!</p>
                 <div className="link-box">
-                  <input readOnly value={shopLink}/>
-                  <button className="copy-btn" onClick={()=>{navigator.clipboard.writeText(shopLink);alert("✅ Αντιγράφηκε!")}}>Αντιγραφή</button>
-                </div>
+  <input readOnly value={shopLink} style={{
+    flex:1, background:"none", border:"none",
+    color:"var(--blue)", fontSize:11, fontWeight:600,
+    outline:"none", minWidth:0, wordBreak:"break-all"
+  }}/>
+  <button className="copy-btn" style={{flexShrink:0}} onClick={()=>{
+    navigator.clipboard.writeText(shopLink)
+    alert("✅ Αντιγράφηκε!")
+  }}>Αντιγραφή</button>
+</div>
                 <div className="success-card">
                   <div className="sc-row"><span className="sc-label">Κουρείο</span><span className="sc-val">{shopName}</span></div>
                   <div className="sc-row"><span className="sc-label">Πλάνο</span><span className="sc-val">👤 Solo · €20/μήνα</span></div>

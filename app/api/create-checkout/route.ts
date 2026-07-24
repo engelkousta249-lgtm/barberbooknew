@@ -6,17 +6,17 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const PLANS = {
   solo: {
     name: "Solo Plan",
-    price: 2000, // €20 σε cents
+    price: 2000,
     description: "1 Barber · Απεριόριστες κρατήσεις",
   },
   duo: {
     name: "Duo Plan",
-    price: 2400, // €24
+    price: 2400,
     description: "2 Barbers · Απεριόριστες κρατήσεις",
   },
   team: {
     name: "Team Plan",
-    price: 2800, // €28
+    price: 2800,
     description: "3-10 Barbers · Πλήρης διαχείριση",
   },
 }
@@ -32,6 +32,9 @@ export async function POST(req: Request) {
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ["card"],
     mode: "subscription",
+    subscription_data: {
+      trial_period_days: 60,
+    },
     line_items: [
       {
         price_data: {
@@ -47,7 +50,7 @@ export async function POST(req: Request) {
       },
     ],
     success_url: `https://barberbook.life/onboarding/${plan}?success=true&shop=${barbershopId}`,
-cancel_url: `https://barberbook.life/onboarding/${plan}?cancelled=true`,
+    cancel_url: `https://barberbook.life/onboarding/${plan}?cancelled=true`,
     metadata: { plan, barbershopId },
   })
 

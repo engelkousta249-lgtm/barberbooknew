@@ -275,7 +275,17 @@ if (!authData.user?.id) { setError("Σφάλμα εγγραφής!"); setLoading
         .sc-label{color:var(--muted2);}
         .sc-val{font-weight:700;}
         @media(max-width:768px){.container{grid-template-columns:1fr;}.sidebar{display:none;}.card{padding:24px 20px;}.field-row{grid-template-columns:1fr;}.barber-row{grid-template-columns:1fr 1fr;}}
-      `}</style>
+     .card {
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+     `}</style>
 
       <nav className="nav">
         <div className="brand" onClick={()=>window.location.href="/"}>BarberBook</div>
@@ -425,22 +435,49 @@ if (!authData.user?.id) { setError("Σφάλμα εγγραφής!"); setLoading
                 </div>
               </>
             ) : (
-              <div className="success">
-                <div className="check-wrap">✓</div>
-                <h2>Το κουρείο σου είναι ζωντανό! 🎉</h2>
-                <p>Μοιράσου το link σου στο Instagram bio!</p>
-                <div className="link-box"><input readOnly value={shopLink}/><button className="copy-btn" onClick={()=>{navigator.clipboard.writeText(shopLink);alert("✅ Αντιγράφηκε!")}}>Αντιγραφή</button></div>
-                <div className="success-card">
-                  <div className="sc-row"><span className="sc-label">Κουρείο</span><span className="sc-val">{shopName}</span></div>
-                  <div className="sc-row"><span className="sc-label">Πλάνο</span><span className="sc-val">🏆 Team · €28/μήνα</span></div>
-                  <div className="sc-row"><span className="sc-label">Barbers</span><span className="sc-val">{barbers.filter(b=>b.name).length} άτομα</span></div>
+                <div className="success">
+                  <div className="check-wrap">✓</div>
+                  <h2>Το κουρείο σου είναι ζωντανό! 🎉</h2>
+                  <p>Μοιράσου το link σου στο Instagram bio σου!</p>
+
+                  <div style={{background:"rgba(59,130,246,.08)",border:"1px solid rgba(59,130,246,.25)",borderRadius:14,padding:"20px 24px",marginBottom:20}}>
+                    <div style={{fontSize:12,color:"var(--muted2)",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:".5px"}}>
+                      🔗 Το link του κουρείου σου
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                      <div style={{flex:1,background:"rgba(0,0,0,.2)",borderRadius:8,padding:"10px 14px",fontSize:13,color:"var(--blue)",fontWeight:600,wordBreak:"break-all",minWidth:0}}>
+                        {shopLink}
+                      </div>
+                      <button onClick={()=>{navigator.clipboard.writeText(shopLink);alert("✅ Αντιγράφηκε!")}}
+                        style={{padding:"10px 20px",background:"linear-gradient(135deg,var(--blue),#1d4ed8)",border:"none",color:"#fff",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
+                        📋 Αντιγραφή
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="success-card">
+                    <div className="sc-row"><span className="sc-label">Κουρείο</span><span className="sc-val">{shopName}</span></div>
+                    <div className="sc-row"><span className="sc-label">Πλάνο</span><span className="sc-val">🏆 TEAM · €28/μήνα</span></div>
+                    <div className="sc-row"><span className="sc-label">Πόλη</span><span className="sc-val">{city}</span></div>
+                    <div className="sc-row"><span className="sc-label">Trial</span><span className="sc-val" style={{color:"var(--green)"}}>✅ 2 Μήνες Δωρεάν</span></div>
+                  </div>
+
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <button onClick={()=>window.location.href="/dashboard"}
+                      style={{padding:"13px",background:"linear-gradient(135deg,var(--blue),#1d4ed8)",border:"none",color:"#fff",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+                      📊 Dashboard →
+                    </button>
+                    <button onClick={()=>window.open(shopLink,"_blank")}
+                      style={{padding:"13px",background:"rgba(16,185,129,.1)",border:"1px solid rgba(16,185,129,.25)",color:"var(--green)",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+                      👁️ Δες το Προφίλ
+                    </button>
+                  </div>
                 </div>
-                <button className="btn primary" style={{width:"100%"}} onClick={()=>window.location.href="/dashboard"}>Πήγαινε στο Dashboard →</button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      
     </>
   )
 }

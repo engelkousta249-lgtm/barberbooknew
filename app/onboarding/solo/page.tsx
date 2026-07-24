@@ -280,16 +280,7 @@ if (!authData.user?.id) { setError("Σφάλμα εγγραφής!"); setLoading
   .sc-row{font-size:12px;}
   .check-wrap{width:60px;height:60px;font-size:26px;}
 }{.container{grid-template-columns:1fr;}.sidebar{display:none;}.card{padding:24px 20px;}.field-row{grid-template-columns:1fr;}}
-     .card {
-  width: 100vw;
-  height: 100vh;
-  border-radius: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
+ 
      `}</style>
 
       <nav className="nav">

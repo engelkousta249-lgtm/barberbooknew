@@ -259,17 +259,7 @@ await supabase.auth.signInWithPassword({ email, password })
         .sc-label{color:var(--muted2);}
         .sc-val{font-weight:700;}
         @media(max-width:768px){.container{grid-template-columns:1fr;}.sidebar{display:none;}.card{padding:24px 20px;}.field-row{grid-template-columns:1fr;}.barber-row{grid-template-columns:1fr;}}
-      .card {
-  width: 100vw;
-  height: 100vh;
-  border-radius: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
-      `}</style>
+     `}</style>
 
       <nav className="nav">
         <div className="brand" onClick={()=>window.location.href="/"}>BarberBook</div>

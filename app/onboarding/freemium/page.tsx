@@ -242,19 +242,6 @@ if (!authData.user?.id) { setError("Σφάλμα εγγραφής!"); setLoading
         .sc-label{color:var(--muted2);}
         .sc-val{font-weight:700;}
         @media(max-width:768px){.container{grid-template-columns:1fr;}.sidebar{display:none;}.card{padding:24px 20px;}.field-row{grid-template-columns:1fr;}}
-/* FULLSCREEN CARD */
-.card {
-  width: 100vw;
-  height: 100vh;
-  border-radius: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
-
-
       `}</style>
 
       <nav className="nav">
@@ -451,7 +438,7 @@ if (!authData.user?.id) { setError("Σφάλμα εγγραφής!"); setLoading
 
                   <div className="success-card">
                     <div className="sc-row"><span className="sc-label">Κουρείο</span><span className="sc-val">{shopName}</span></div>
-                    <div className="sc-row"><span className="sc-label">Πλάνο</span><span className="sc-val">🆓 freemium· €0/μήνα</span></div>
+                    <div className="sc-row"><span className="sc-label">Πλάνο</span><span className="sc-val">🆓 Freemium · €0/μήνα</span></div>
                     <div className="sc-row"><span className="sc-label">Πόλη</span><span className="sc-val">{city}</span></div>
                     <div className="sc-row"><span className="sc-label">Trial</span><span className="sc-val" style={{color:"var(--green)"}}>✅ 2 Μήνες Δωρεάν</span></div>
                   </div>

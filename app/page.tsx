@@ -117,6 +117,10 @@ export default function Home() {
   const [showSearchResults, setShowSearchResults] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const searchRef = useRef<HTMLDivElement>(null)
+   const heroRef = useRef<HTMLDivElement>(null)
+  const spotlightRef = useRef<HTMLDivElement>(null)
+  const visualRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
 
   const now = new Date()
   const featuredShops = barbershops.filter(b => {
@@ -298,6 +302,86 @@ export default function Home() {
     )
   }
 
+  const howSteps = [
+    {
+      n: "01",
+      title: "Διάλεξε περιοχή",
+      desc: "Δες διαθέσιμα κουρεία στην περιοχή σου",
+      icon: (
+        <>
+          <rect x="3" y="4" width="18" height="17" rx="2" />
+          <path d="M3 9h18" />
+          <path d="M8 2v4" />
+          <path d="M16 2v4" />
+          <path d="M8 14l2 2 4-4" />
+        </>
+      ),
+    },
+    {
+      n: "02",
+      title: "Διάλεξε υπηρεσία & barber",
+      desc: "Βρες αυτό που χρειάζεσαι",
+      icon: (
+        <>
+          <circle cx="6" cy="6" r="3" />
+          <circle cx="6" cy="18" r="3" />
+          <path d="M8.5 8.5L20 20" />
+          <path d="M8.5 15.5L20 4" />
+        </>
+      ),
+    },
+    {
+      n: "03",
+      title: "Κλείσε με 1 click",
+      desc: "Χωρίς τηλεφωνήματα και χωρίς αναμονή",
+      icon: <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" />,
+    },
+  ]
+ 
+  const handleHeroMove = (e: any) => {
+    const hero = heroRef.current
+    const spot = spotlightRef.current
+    if (!hero || !spot) return
+    const r = hero.getBoundingClientRect()
+    const px = ((e.clientX - r.left) / r.width) * 100
+    const py = ((e.clientY - r.top) / r.height) * 100
+    spot.style.background = `radial-gradient(360px circle at ${px}% ${py}%, rgba(77,138,255,0.10), transparent 65%)`
+  }
+  const handleCardMove = (e: any) => {
+    const visual = visualRef.current
+    const card = cardRef.current
+    if (!visual || !card) return
+    const r = visual.getBoundingClientRect()
+    const x = (e.clientX - r.left) / r.width - 0.5
+    const y = (e.clientY - r.top) / r.height - 0.5
+    card.style.transform = `rotateY(${-14 + x * 16}deg) rotateX(${8 - y * 14}deg)`
+  }
+  const handleCardLeave = () => {
+    if (cardRef.current) cardRef.current.style.transform = "rotateY(-14deg) rotateX(8deg)"
+  }
+  const handleMagnetMove = (e: any) => {
+    const btn = e.currentTarget
+    const r = btn.getBoundingClientRect()
+    const x = e.clientX - r.left - r.width / 2
+    const y = e.clientY - r.top - r.height / 2
+    btn.style.transform = `translate(${x * 0.15}px, ${y * 0.25 - 2}px)`
+  }
+  const handleMagnetLeave = (e: any) => {
+    e.currentTarget.style.transform = "translate(0,0)"
+  }
+
+  const handleHowMove = (e: any) => {
+    const card = e.currentTarget
+    const r = card.getBoundingClientRect()
+    const x = (e.clientX - r.left) / r.width - 0.5
+    const y = (e.clientY - r.top) / r.height - 0.5
+    card.style.transform = `rotateY(${x * 8}deg) rotateX(${-y * 8}deg)`
+  }
+  
+  const handleHowLeave = (e: any) => {
+    e.currentTarget.style.transform = "rotateY(0deg) rotateX(0deg)"
+  }
+
   return (
     <>
       <style>{`
@@ -337,9 +421,9 @@ export default function Home() {
         .hamburger.open span:nth-child(2){opacity:0;}
         .hamburger.open span:nth-child(3){transform:rotate(-45deg) translate(5px,-5px);}
 
-        /* HERO */
+         /* HERO */
         .hero{min-height:100vh;display:flex;align-items:center;justify-content:center;
-          position:relative;overflow:hidden;padding:0 2rem;
+          position:relative;overflow:hidden;padding:0 2rem;perspective:1400px;
           background:radial-gradient(ellipse 120% 80% at 50% 0%,rgba(30,95,255,0.15),transparent 60%),
           radial-gradient(ellipse 80% 60% at 100% 100%,rgba(201,168,76,0.08),transparent 60%),
           var(--navy);}
@@ -347,6 +431,26 @@ export default function Home() {
         .hero-glow{position:absolute;width:600px;height:600px;border-radius:50%;
           background:radial-gradient(circle,rgba(30,95,255,0.12),transparent 70%);
           top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:0;}
+ 
+        .grid-floor{position:absolute;left:0;right:0;bottom:0;height:50%;
+          background-image:linear-gradient(rgba(30,95,255,0.1) 1px,transparent 1px),
+            linear-gradient(90deg,rgba(30,95,255,0.1) 1px,transparent 1px);
+          background-size:60px 60px;transform:perspective(500px) rotateX(60deg);
+          transform-origin:bottom;
+          -webkit-mask-image:linear-gradient(to top,rgba(0,0,0,0.55),transparent);
+          mask-image:linear-gradient(to top,rgba(0,0,0,0.55),transparent);
+          opacity:0.5;z-index:0;animation:grid-drift 10s linear infinite;pointer-events:none;}
+        @keyframes grid-drift{from{background-position:0 0;}to{background-position:0 60px;}}
+        .spotlight{position:absolute;inset:0;z-index:1;pointer-events:none;}
+        .badge-cube-stage{width:20px;height:20px;perspective:200px;flex-shrink:0;}
+        .badge-cube{width:100%;height:100%;position:relative;transform-style:preserve-3d;
+          animation:badge-spin 6s linear infinite;transform:rotateX(-18deg);}
+        .badge-cube .face{position:absolute;inset:0;display:flex;align-items:center;
+          justify-content:center;border-radius:6px;backface-visibility:hidden;font-size:11px;}
+        .badge-cube .f1{background:linear-gradient(145deg,var(--glow),var(--accent));transform:translateZ(10px);}
+        .badge-cube .f2{background:linear-gradient(145deg,var(--accent),#0a3ab8);transform:translateZ(-10px) rotateY(180deg);}
+        @keyframes badge-spin{to{transform:rotateX(-18deg) rotateY(360deg);}}
+ 
         .hero-content{position:relative;z-index:2;text-align:center;max-width:800px;}
         .hero-badge{display:inline-flex;align-items:center;gap:0.5rem;
           background:rgba(30,95,255,0.1);border:1px solid rgba(30,95,255,0.25);
@@ -356,8 +460,11 @@ export default function Home() {
           line-height:0.95;letter-spacing:0.03em;margin-bottom:1rem;}
         .hero-title .line1{display:block;color:var(--white);}
         .hero-title .line2{display:block;
-          background:linear-gradient(120deg,var(--glow),var(--gold2));
-          -webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+          background:linear-gradient(120deg,var(--glow) 20%,var(--gold2) 40%,var(--white) 50%,var(--gold2) 60%,var(--glow) 80%);
+          background-size:250% 100%;
+          -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+          animation:shine-sweep 5s linear infinite;}
+        @keyframes shine-sweep{0%{background-position:200% 0;}100%{background-position:-50% 0;}}
         .hero-sub{font-size:1.05rem;color:var(--light);opacity:0.65;line-height:1.7;
           max-width:520px;margin:0 auto 2.5rem;}
         .hero-search{position:relative;max-width:560px;margin:0 auto 1.5rem;}
@@ -397,7 +504,7 @@ export default function Home() {
           font-size:0.88rem;font-weight:800;cursor:pointer;transition:all 0.2s;
           font-family:'Inter',sans-serif;}
         .btn-biz:hover{filter:brightness(1.1);transform:translateY(-1px);}
-
+ 
         /* NEAR ME */
         .near-section{max-width:560px;margin:1.5rem auto 0;}
         .near-result{background:rgba(8,20,42,0.95);border:1px solid rgba(30,95,255,0.2);
@@ -414,6 +521,101 @@ export default function Home() {
         .nr-name{font-size:0.85rem;font-weight:700;}
         .nr-addr{font-size:0.72rem;color:var(--light);opacity:0.5;margin-top:1px;}
         .nr-arrow{margin-left:auto;color:var(--glow);font-size:0.8rem;}
+ 
+        /* HERO 2-COLUMN LAYOUT (3D visual) */
+        .hero-grid-2col{position:relative;z-index:2;max-width:1180px;width:100%;
+          display:grid;grid-template-columns:1.15fr 0.85fr;gap:3rem;align-items:center;}
+        .hero-copy{text-align:left;}
+        .hero-visual{position:relative;height:440px;display:flex;align-items:center;
+          justify-content:center;perspective:1200px;}
+        .card-stack{position:relative;transform-style:preserve-3d;}
+        .stack-layer{position:absolute;inset:0;width:270px;border-radius:1.4rem;
+          border:1px solid rgba(30,95,255,0.15);}
+        .stack-2{background:rgba(10,20,40,0.5);transform:translate(14px,22px) translateZ(-40px) rotateY(-14deg) rotateX(8deg);
+          filter:blur(1px);height:290px;}
+        .stack-3{background:rgba(8,16,32,0.35);transform:translate(26px,40px) translateZ(-80px) rotateY(-14deg) rotateX(8deg);
+          filter:blur(2px);height:290px;}
+        .booking-card{position:relative;width:270px;
+          background:linear-gradient(165deg,rgba(16,32,60,0.97),rgba(6,14,28,0.98));
+          border:1px solid rgba(30,95,255,0.28);border-radius:1.4rem;padding:1.4rem;
+          box-shadow:0 40px 80px -20px rgba(0,0,0,0.65),0 0 0 1px rgba(30,95,255,0.1) inset,
+            0 0 40px -10px rgba(30,95,255,0.25);
+          transform-style:preserve-3d;transform:rotateY(-14deg) rotateX(8deg);
+          transition:transform 0.15s ease-out;}
+        .bc-top{display:flex;align-items:center;gap:0.8rem;margin-bottom:1.1rem;}
+        .bc-avatar{width:44px;height:44px;border-radius:50%;
+          background:linear-gradient(135deg,var(--accent),var(--gold));
+          display:flex;align-items:center;justify-content:center;font-size:19px;
+          border:2px solid rgba(201,168,76,0.5);transform:translateZ(18px);}
+        .bc-name{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.03em;}
+        .bc-loc{font-size:0.7rem;color:var(--light);opacity:0.55;margin-top:2px;}
+        .bc-divider{height:1px;background:var(--line);margin:0.9rem 0;}
+        .bc-row{display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;
+          margin-bottom:0.65rem;color:var(--light);opacity:0.75;}
+        .bc-row b{color:var(--white);opacity:1;font-weight:600;}
+        .bc-status{display:flex;align-items:center;gap:0.5rem;background:rgba(30,95,255,0.12);
+          border:1px solid rgba(30,95,255,0.3);border-radius:0.7rem;padding:0.55rem 0.8rem;
+          font-size:0.78rem;font-weight:700;color:var(--glow);margin-top:0.9rem;transform:translateZ(14px);}
+        .bc-status .pulse-dot{width:7px;height:7px;border-radius:50%;background:var(--glow);
+          animation:pulse-ring 1.8s ease-out infinite;}
+        @keyframes pulse-ring{0%{box-shadow:0 0 0 0 rgba(77,138,255,0.5);}
+          70%{box-shadow:0 0 0 10px rgba(77,138,255,0);}100%{box-shadow:0 0 0 0 rgba(77,138,255,0);}}
+        .floating-chip{position:absolute;background:var(--card);border:1px solid var(--line);
+          border-radius:0.9rem;padding:0.65rem 0.95rem;font-size:0.76rem;font-weight:700;
+          display:flex;align-items:center;gap:0.5rem;box-shadow:0 16px 40px rgba(0,0,0,0.4);
+          animation:float 4.5s ease-in-out infinite;transform-style:preserve-3d;}
+        .chip-rating{top:0;right:-20px;color:var(--gold2);animation-delay:0.2s;}
+        .chip-booked{bottom:30px;left:-36px;color:var(--glow);animation-delay:1.1s;}
+        @keyframes float{0%,100%{transform:translateY(0) translateZ(60px);}
+          50%{transform:translateY(-12px) translateZ(60px);}}
+        @media(max-width:900px){
+          .hero-grid-2col{grid-template-columns:1fr;text-align:center;}
+          .hero-copy{text-align:center;}
+          .hero-visual{height:340px;margin-top:1rem;}
+          .grid-floor{opacity:0.3;}
+        }
+ 
+ /* HOW IT WORKS */
+        .how-section{padding:5rem 2rem;text-align:center;
+          background:radial-gradient(ellipse 90% 70% at 50% 0%,rgba(30,95,255,0.1),transparent 60%);}
+        .how-eyebrow{font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;
+          color:var(--glow);font-weight:700;margin-bottom:0.5rem;}
+        .how-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.2rem,5vw,3rem);
+          letter-spacing:0.04em;margin-bottom:0.6rem;}
+        .how-sub{font-size:0.92rem;color:var(--light);opacity:0.55;
+          max-width:480px;margin:0 auto 3rem;line-height:1.7;}
+        .how-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;
+          max-width:1000px;margin:0 auto;text-align:left;perspective:1400px;}
+        .how-card{position:relative;background:var(--card);border:1px solid var(--line);
+          border-radius:1.2rem;padding:2.4rem 1.6rem 1.8rem;transform-style:preserve-3d;
+          transition:transform 0.15s ease-out,border-color 0.2s,box-shadow 0.2s;}
+        .how-card:hover{border-color:rgba(30,95,255,0.35);
+          box-shadow:0 24px 48px -16px rgba(30,95,255,0.3);}
+        .how-card::after{content:attr(data-n);position:absolute;top:1.1rem;right:1.3rem;
+          font-size:0.72rem;font-weight:700;color:var(--light);opacity:0.3;}
+        .how-icon-stage{width:64px;height:64px;margin-bottom:1.6rem;perspective:600px;}
+        .how-icon-cube{width:100%;height:100%;position:relative;transform-style:preserve-3d;
+          animation:how-spin 9s linear infinite;transform:rotateX(-18deg) rotateY(0deg);}
+        .how-card:nth-child(2) .how-icon-cube{animation-delay:-3s;}
+        .how-card:nth-child(3) .how-icon-cube{animation-delay:-6s;}
+        .how-icon-face{position:absolute;inset:0;display:flex;align-items:center;
+          justify-content:center;border-radius:16px;backface-visibility:hidden;color:var(--glow);}
+        .how-icon-face.front{background:linear-gradient(145deg,rgba(30,95,255,0.18),rgba(10,22,40,0.9));
+          border:1px solid rgba(30,95,255,0.35);transform:translateZ(22px);
+          box-shadow:0 0 18px rgba(30,95,255,0.2) inset;}
+        .how-icon-face.back{background:linear-gradient(145deg,rgba(10,22,40,0.95),rgba(5,13,26,0.9));
+          border:1px solid rgba(30,95,255,0.12);transform:translateZ(-22px) rotateY(180deg);}
+        .how-icon-face.side{background:linear-gradient(145deg,rgba(30,95,255,0.15),rgba(10,22,40,0.6));
+          width:44px;height:64px;left:10px;}
+        .how-icon-face.right{transform:rotateY(90deg) translateZ(22px);}
+        .how-icon-face.left{transform:rotateY(-90deg) translateZ(22px);}
+        .how-icon-face svg{width:26px;height:26px;filter:drop-shadow(0 0 5px rgba(77,138,255,0.6));}
+        .how-card-title{font-family:'Bebas Neue',sans-serif;font-size:1.25rem;
+          letter-spacing:0.03em;margin-bottom:0.4rem;}
+        .how-card-desc{font-size:0.85rem;color:var(--light);opacity:0.55;line-height:1.6;}
+        @keyframes how-spin{0%{transform:rotateX(-18deg) rotateY(0deg);}100%{transform:rotateX(-18deg) rotateY(360deg);}}
+        @media(max-width:768px){.how-grid{grid-template-columns:1fr;}}
+ 
 
         /* STATS BAR */
         .stats-bar{background:rgba(8,20,42,0.6);border-top:1px solid var(--line);
@@ -637,94 +839,166 @@ export default function Home() {
       </div>
 
       {/* HERO */}
-      <section className="hero">
+      <section className="hero" ref={heroRef} onMouseMove={handleHeroMove}>
         <canvas className="hero-canvas" ref={canvasRef}/>
+        <div className="grid-floor"/>
+        <div className="spotlight" ref={spotlightRef}/>
         <div className="hero-glow"/>
-        <div className="hero-content">
-          <div className="hero-badge">✂️ Η #1 Πλατφόρμα Κουρείων στην Ελλάδα</div>
-          <h1 className="hero-title">
-            <span className="line1">Βρες τον</span>
-            <span className="line2">Barber σου</span>
-          </h1>
-          <p className="hero-sub">Κλείσε ραντεβού στο αγαπημένο σου κουρείο σε δευτερόλεπτα. Χωρίς αναμονή, χωρίς τηλεφωνήματα.</p>
-
-          {/* SEARCH */}
-          <div className="hero-search" ref={searchRef}>
-            <div className="search-input-wrap">
-              <span className="search-icon">🔍</span>
-              <input
-                className="search-input"
-                placeholder="Αναζήτησε κουρείο, πόλη ή περιοχή..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onFocus={() => { if (searchResults.length > 0) setShowSearchResults(true) }}
-              />
+ 
+        <div className="hero-grid-2col">
+          <div className="hero-copy">
+            <div className="hero-badge">
+              <span className="badge-cube-stage">
+                <span className="badge-cube">
+                  <span className="face f1">✂️</span>
+                  <span className="face f2">✂️</span>
+                </span>
+              </span>
+              Η #1 Πλατφόρμα Κουρείων στην Ελλάδα
             </div>
-            {showSearchResults && searchResults.length > 0 && (
-              <div className="search-results">
-                {searchResults.map(b => (
-                  <div key={b.id} className="search-result-item"
-                    onClick={() => { window.location.href=`/barbershops/${b.id}`; setShowSearchResults(false) }}>
-                    <div className="sri-avatar">
-                      {shopPhotos[b.id] ? (
-                        <img src={shopPhotos[b.id]} alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"0.6rem"}}/>
-                      ) : b.logo_url ? (
-                        <img src={b.logo_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"0.6rem"}}/>
-                      ) : "💈"}
-                    </div>
-                    <div className="sri-info">
-                      <div className="sri-name">{b.name}</div>
-                      <div className="sri-addr">{b.address ? `${b.address}, ${b.city}` : b.city}</div>
-                    </div>
-                    <div className="sri-rating">★ {b.rating || "5.0"}</div>
-                  </div>
-                ))}
+            <h1 className="hero-title">
+              <span className="line1">Βρες τον</span>
+              <span className="line2">Barber σου</span>
+            </h1>
+            <p className="hero-sub">Κλείσε ραντεβού στο αγαπημένο σου κουρείο σε δευτερόλεπτα. Χωρίς αναμονή, χωρίς τηλεφωνήματα.</p>
+ 
+            {/* SEARCH */}
+            <div className="hero-search" ref={searchRef}>
+              <div className="search-input-wrap">
+                <span className="search-icon">🔍</span>
+                <input
+                  className="search-input"
+                  placeholder="Αναζήτησε κουρείο, πόλη ή περιοχή..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onFocus={() => { if (searchResults.length > 0) setShowSearchResults(true) }}
+                />
               </div>
-            )}
-            {showSearchResults && searchResults.length === 0 && searchQuery.trim() && (
-              <div className="search-results">
-                <div style={{padding:"1.2rem",textAlign:"center",color:"var(--light)",opacity:0.5,fontSize:"0.85rem"}}>
-                  Δεν βρέθηκαν αποτελέσματα για "{searchQuery}"
+              {showSearchResults && searchResults.length > 0 && (
+                <div className="search-results">
+                  {searchResults.map(b => (
+                    <div key={b.id} className="search-result-item"
+                      onClick={() => { window.location.href=`/barbershops/${b.id}`; setShowSearchResults(false) }}>
+                      <div className="sri-avatar">
+                        {shopPhotos[b.id] ? (
+                          <img src={shopPhotos[b.id]} alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"0.6rem"}}/>
+                        ) : b.logo_url ? (
+                          <img src={b.logo_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"0.6rem"}}/>
+                        ) : "💈"}
+                      </div>
+                      <div className="sri-info">
+                        <div className="sri-name">{b.name}</div>
+                        <div className="sri-addr">{b.address ? `${b.address}, ${b.city}` : b.city}</div>
+                      </div>
+                      <div className="sri-rating">★ {b.rating || "5.0"}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {showSearchResults && searchResults.length === 0 && searchQuery.trim() && (
+                <div className="search-results">
+                  <div style={{padding:"1.2rem",textAlign:"center",color:"var(--light)",opacity:0.5,fontSize:"0.85rem"}}>
+                    Δεν βρέθηκαν αποτελέσματα για "{searchQuery}"
+                  </div>
+                </div>
+              )}
+            </div>
+ 
+            <div className="hero-cta-row">
+              <button className="btn-near" onClick={handleNearMe} onMouseMove={handleMagnetMove} onMouseLeave={handleMagnetLeave}>
+                {nearLoading ? "⏳ Εντοπισμός..." : "📍 Κοντά μου"}
+              </button>
+              <button className="btn-biz" onClick={() => window.location.href="/onboarding"} onMouseMove={handleMagnetMove} onMouseLeave={handleMagnetLeave}>
+                💈 Είσαι Barber; Ξεκίνα Δωρεάν
+              </button>
+            </div>
+ 
+            {/* NEAR ME RESULTS */}
+            {nearShow && (
+              <div className="near-section">
+                <div className="near-result">
+                  <div className="near-title">📍 Barbers Κοντά σου</div>
+                  {nearResults.length === 0 ? (
+                    <div style={{fontSize:"0.82rem",color:"var(--light)",opacity:0.4,padding:"0.5rem"}}>
+                      Δεν βρέθηκαν κουρεία κοντά σου.
+                    </div>
+                  ) : nearResults.map(b => (
+                    <div key={b.id} className="near-row" onClick={() => window.location.href=`/barbershops/${b.id}`}>
+                      <div className="near-dot"/>
+                      <div>
+                        <div className="nr-name">{b.name}</div>
+                        <div className="nr-addr">{b.address ? `${b.address}, ${b.city}` : b.city}</div>
+                      </div>
+                      <div className="nr-arrow">→</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
           </div>
-
-          <div className="hero-cta-row">
-            <button className="btn-near" onClick={handleNearMe}>
-              {nearLoading ? "⏳ Εντοπισμός..." : "📍 Κοντά μου"}
-            </button>
-            <button className="btn-biz" onClick={() => window.location.href="/onboarding"}>
-              💈 Είσαι Barber; Ξεκίνα Δωρεάν
-            </button>
-          </div>
-
-          {/* NEAR ME RESULTS */}
-          {nearShow && (
-            <div className="near-section">
-              <div className="near-result">
-                <div className="near-title">📍 Barbers Κοντά σου</div>
-                {nearResults.length === 0 ? (
-                  <div style={{fontSize:"0.82rem",color:"var(--light)",opacity:0.4,padding:"0.5rem"}}>
-                    Δεν βρέθηκαν κουρεία κοντά σου.
+ 
+          <div className="hero-visual" ref={visualRef} onMouseMove={handleCardMove} onMouseLeave={handleCardLeave}>
+            <div className="card-stack">
+              <div className="stack-layer stack-3"/>
+              <div className="stack-layer stack-2"/>
+              <div className="booking-card" ref={cardRef}>
+                <div className="bc-top">
+                  <div className="bc-avatar">✂️</div>
+                  <div>
+                    <div className="bc-name">Fade Club</div>
+                    <div className="bc-loc">Αθήνα, Κέντρο</div>
                   </div>
-                ) : nearResults.map(b => (
-                  <div key={b.id} className="near-row" onClick={() => window.location.href=`/barbershops/${b.id}`}>
-                    <div className="near-dot"/>
-                    <div>
-                      <div className="nr-name">{b.name}</div>
-                      <div className="nr-addr">{b.address ? `${b.address}, ${b.city}` : b.city}</div>
-                    </div>
-                    <div className="nr-arrow">→</div>
-                  </div>
-                ))}
+                </div>
+                <div className="bc-divider"/>
+                <div className="bc-row"><span>Υπηρεσία</span><b>Skin Fade + Beard</b></div>
+                <div className="bc-row"><span>Barber</span><b>Γιώργος Π.</b></div>
+                <div className="bc-row"><span>Ώρα</span><b>Σήμερα, 18:30</b></div>
+                <div className="bc-status"><span className="pulse-dot"/> Ραντεβού επιβεβαιώθηκε</div>
               </div>
+              <div className="floating-chip chip-rating">⭐ 4.9 βαθμολογία</div>
+              <div className="floating-chip chip-booked">✅ Κλείστηκε σε 8s</div>
             </div>
-          )}
+          </div>
         </div>
       </section>
-
+ 
       
+      {/* HOW IT WORKS */}
+      <section className="how-section">
+        <div className="how-eyebrow">Πλατφόρμα κρατήσεων</div>
+        <div className="how-title">Πως δουλεύει</div>
+        <p className="how-sub">Κλείσε γρήγορα και εύκολα το επόμενο σου ραντεβού</p>
+        <div className="how-grid">
+          {howSteps.map(step => (
+            <div
+              key={step.n}
+              className="how-card"
+              data-n={step.n}
+              onMouseMove={handleHowMove}
+              onMouseLeave={handleHowLeave}
+            >
+              <div className="how-icon-stage">
+                <div className="how-icon-cube">
+                  <div className="how-icon-face front">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      {step.icon}
+                    </svg>
+                  </div>
+                  <div className="how-icon-face back">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      {step.icon}
+                    </svg>
+                  </div>
+                  <div className="how-icon-face side right" />
+                  <div className="how-icon-face side left" />
+                </div>
+              </div>
+              <div className="how-card-title">{step.title}</div>
+              <div className="how-card-desc">{step.desc}</div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* FEATURED BARBERS */}
       <section className="section">

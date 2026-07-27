@@ -27,15 +27,18 @@ export default function Dashboard() {
   const [appointments, setAppointments] = useState<any[]>([])
   const [barbershop, setBarbershop] = useState<any>(null)
   const [toast, setToast] = useState("")
-  const [modal, setModal] = useState<null|"new"|"block"|"cancel"|"reschedule">(null)
+  const [modal, setModal] = useState<null|"new"|"block"|"cancel"|"reschedule"|"detail">(null)
   const [selectedAppt, setSelectedAppt] = useState<any>(null)
   const [newDate, setNewDate] = useState("")
   const [newTime, setNewTime] = useState("")
   const [newClient, setNewClient] = useState("")
-  const [newService, setNewService] = useState("Κούρεμα")
+  const [newPhone, setNewPhone] = useState("")
+  const [newEmail, setNewEmail] = useState("")
+  const [newService, setNewService] = useState("")
+  const [newBarber, setNewBarber] = useState("")
   const [blockReason, setBlockReason] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [teamMembers, setTeamMembers] = useState<{name:string,role:string}[]>([])
+  const [teamMembers, setTeamMembers] = useState<{id?:string,name:string,role:string,photo_url?:string}[]>([])
   const [editServices, setEditServices] = useState<{name:string,duration:number,price:number}[]>([])
   const [hours, setHours] = useState([
     {day:"Δευ",active:true,open:"09:00",close:"19:00"},
@@ -48,26 +51,16 @@ export default function Dashboard() {
   ])
   const [photos, setPhotos] = useState<{id:string,url:string,is_cover:boolean}[]>([])
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
-
-  const showToast = (message: string) => {
-    setToast(message)
-    window.setTimeout(() => setToast(""), 3200)
-  }
-
-  async function handleUpgrade(plan: string) {
-    if (!barbershop?.id) return
-    const res = await fetch("/api/create-checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan, barbershopId: barbershop.id })
-    })
-    const { url } = await res.json()
-    if (url) window.location.href = url
-  }
+  const [uploadingBarberPhoto, setUploadingBarberPhoto] = useState<number|null>(null)
+  const [reviews, setReviews] = useState<any[]>([])
 
   const today = new Date().toISOString().split("T")[0]
   const todayName = DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1]
-  const SERVICES = ["Κούρεμα","Κούρεμα + Γένια","Ξύρισμα + Styling","Full Service","Fade","Παιδικό Κούρεμα"]
+
+  const showToast = (msg: string) => {
+    setToast(msg)
+    setTimeout(() => setToast(""), 2500)
+  }
 
   useEffect(() => {
     async function init() {
@@ -77,7 +70,6 @@ export default function Dashboard() {
 
       const { data: profile } = await supabase
         .from("profiles").select("*").eq("id", user.id).single()
-
       if (profile?.role !== "owner") { window.location.href = "/"; return }
 
       if (profile?.barbershop_id) {
@@ -94,178 +86,135 @@ export default function Dashboard() {
         const { data: svcData } = await supabase
           .from("services").select("*").eq("shop_id", profile.barbershop_id)
         if (svcData && svcData.length > 0) {
-          setEditServices(svcData.map((s:any) => ({
-            name: s.name, duration: s.duration_minutes, price: s.price,
-          })))
+          setEditServices(svcData.map((s:any) => ({name:s.name,duration:s.duration_minutes,price:s.price})))
+          setNewService(svcData[0]?.name || "")
         }
 
         const { data: hoursData } = await supabase
-          .from("working_hours").select("*")
-          .eq("shop_id", profile.barbershop_id).order("day_of_week")
+          .from("working_hours").select("*").eq("shop_id", profile.barbershop_id).order("day_of_week")
         if (hoursData && hoursData.length > 0) {
           const dayShorts = ["Δευ","Τρί","Τετ","Πέμ","Παρ","Σάβ","Κυρ"]
           setHours(hoursData.map((h:any) => ({
-            day: dayShorts[h.day_of_week],
-            active: h.is_active,
-            open: h.open_time || "09:00",
-            close: h.close_time || "19:00",
+            day: dayShorts[h.day_of_week], active:h.is_active,
+            open:h.open_time||"09:00", close:h.close_time||"19:00",
           })))
         }
 
         const { data: barbersData } = await supabase
           .from("barbers").select("*").eq("shop_id", profile.barbershop_id)
         if (barbersData) {
-          setTeamMembers(barbersData.map((b:any) => ({ name: b.name, role: b.role })))
+          setTeamMembers(barbersData.map((b:any) => ({id:b.id,name:b.name,role:b.role,photo_url:b.photo_url})))
+          if (barbersData.length > 0) setNewBarber(barbersData[0]?.name || "")
         }
 
         const { data: photosData } = await supabase
           .from("portfolio_photos").select("*").eq("shop_id", profile.barbershop_id)
         if (photosData) setPhotos(photosData)
+
+        const { data: reviewsData } = await supabase
+          .from("reviews").select("*").eq("shop_id", profile.barbershop_id)
+          .order("created_at", { ascending: false })
+        if (reviewsData) setReviews(reviewsData)
       }
       setLoading(false)
     }
     init()
   }, [])
-async function handleCancelPlan() {
-  if (!barbershop?.id) return
-  const confirmed = window.confirm(
-    "Σίγουρα θέλεις να ακυρώσεις το πλάνο σου; Θα υποβαθμιστείς σε Freemium στο τέλος της τρέχουσας περιόδου."
-  )
-  if (!confirmed) return
-
-  const { error } = await supabase
-    .from("barbershops")
-    .update({ plan: "freemium", plan_renews_at: null })
-    .eq("id", barbershop.id)
-
-  if (error) { showToast("Κάτι πήγε στραβά!"); return }
-
-  setBarbershop((prev: any) => ({ ...prev, plan: "freemium", plan_renews_at: null }))
-  showToast("Το πλάνο ακυρώθηκε — είσαι πλέον σε Freemium")
-}
 
   async function handleCancel(id: string) {
-  const appt = appointments.find(a => a.id === id)
-  await supabase.from("appointments").update({ status: "cancelled" }).eq("id", id)
-  setAppointments(prev => prev.map(a => a.id === id ? {...a, status:"cancelled"} : a))
-  setModal(null)
-  showToast("Το ραντεβού ακυρώθηκε")
-
-
-  // Email ακύρωσης
-  if (appt) {
-    await fetch("/api/send-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "cancel_appointment",
-        to: appt.customer_email,
-        data: {
-          shopName: barbershop?.name,
-          customerName: appt.customer_name,
-          service: appt.service,
-          date: appt.date,
-          time: appt.time,
-        }
+    const appt = appointments.find(a => a.id === id)
+    await supabase.from("appointments").update({ status: "cancelled" }).eq("id", id)
+    setAppointments(prev => prev.map(a => a.id === id ? {...a, status:"cancelled"} : a))
+    setModal(null)
+    showToast("Το ραντεβού ακυρώθηκε")
+    if (appt?.customer_email) {
+      await fetch("/api/send-email", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          type:"cancel_appointment", to:appt.customer_email,
+          data:{shopName:barbershop?.name,customerName:appt.customer_name,service:appt.service,date:appt.date,time:appt.time}
+        })
       })
-    })
+    }
   }
-}
 
   async function handleReschedule() {
-    if (!selectedAppt) return
-    if (!newDate || !newTime) {
-      showToast("Επέλεξε ημερομηνία και ώρα!")
-      return
-    }
-
-    const appt = appointments.find(a => a.id === selectedAppt.id)
-    if (!appt) return
-
+    if (!newDate || !newTime) { showToast("Επέλεξε ημερομηνία και ώρα!"); return }
     await supabase.from("appointments")
-      .update({ date: newDate, time: newTime })
-      .eq("id", selectedAppt.id)
-
+      .update({ date:newDate, time:newTime, status:"pending" }).eq("id", selectedAppt.id)
     setAppointments(prev => prev.map(a =>
-      a.id === selectedAppt.id ? { ...a, date: newDate, time: newTime } : a
+      a.id === selectedAppt.id ? {...a,date:newDate,time:newTime,status:"pending"} : a
     ))
+    setModal(null); setNewDate(""); setNewTime("")
+    showToast("Το ραντεβού αλλάχτηκε ✓")
+  }
 
+  async function handleNewAppt() {
+    if (!newClient||!newDate||!newTime) { showToast("Συμπλήρωσε υποχρεωτικά πεδία!"); return }
+    const { data } = await supabase.from("appointments").insert({
+      customer_name:newClient, customer_email:newEmail,
+      customer_phone:newPhone, service:newService,
+      barber_name:newBarber, date:newDate, time:newTime,
+      status:"confirmed", barbershop_id:barbershop?.id||null
+    }).select().single()
+    if (data) setAppointments(p=>[...p,data].sort((a,b)=>a.date.localeCompare(b.date)))
     setModal(null)
-    setNewDate("")
-    setNewTime("")
-    showToast("Η αλλαγή αποθηκεύτηκε ✓")
+    setNewClient(""); setNewPhone(""); setNewEmail(""); setNewDate(""); setNewTime("")
+    showToast("Το ραντεβού προστέθηκε ✓")
+  }
 
-    await fetch("/api/send-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "reschedule_appointment",
-        to: appt.customer_email,
-        data: {
-          shopName: barbershop?.name,
-          customerName: appt.customer_name,
-          service: appt.service,
-          newDate: newDate,
-          newTime: newTime,
-        }
-      })
+  async function handleBlock() {
+    if (!newDate||!newTime) { showToast("Επέλεξε ημερομηνία και ώρα!"); return }
+    await supabase.from("appointments").insert({
+      customer_name:"🚫 Αποκλεισμένο", customer_email:"",
+      service:blockReason||"Μη διαθέσιμο", date:newDate, time:newTime,
+      status:"cancelled", barbershop_id:barbershop?.id||null
     })
+    setModal(null); setNewDate(""); setNewTime(""); setBlockReason("")
+    showToast("Η ώρα αποκλείστηκε ✓")
   }
 
   async function saveTeam() {
-    if (!barbershop?.id) { 
-      showToast("Δεν βρέθηκε κατάστημα!")
-      return 
+    if (!barbershop?.id) return
+    await supabase.from("barbers").delete().eq("shop_id", barbershop.id)
+    if (teamMembers.filter(b=>b.name.trim()).length > 0) {
+      await supabase.from("barbers").insert(
+        teamMembers.filter(b=>b.name.trim()).map(b => ({
+          shop_id:barbershop.id, name:b.name, role:b.role||"Barber", photo_url:b.photo_url||null,
+        }))
+      )
     }
-  async function handleCancelPlan() {
-  if (!barbershop?.id) return
-  const confirmed = window.confirm(
-    "Σίγουρα θέλεις να ακυρώσεις το πλάνο σου; Θα υποβαθμιστείς σε Freemium στο τέλος της τρέχουσας περιόδου."
-  )
-  if (!confirmed) return
-
-  const { error } = await supabase
-    .from("barbershops")
-    .update({ plan: "freemium", plan_renews_at: null })
-    .eq("id", barbershop.id)
-
-  if (error) { showToast("Κάτι πήγε στραβά!"); return }
-
-  setBarbershop((prev: any) => ({ ...prev, plan: "freemium", plan_renews_at: null }))
-  showToast("Το πλάνο ακυρώθηκε — είσαι πλέον σε Freemium")
-}
-  const validBarbers = teamMembers.filter(b => b.name.trim())
-  console.log("Saving barbers:", validBarbers, "for shop:", barbershop.id)
-  
-  const { error: delErr } = await supabase
-    .from("barbers").delete().eq("shop_id", barbershop.id)
-  console.log("Delete error:", delErr)
-  
-  if (validBarbers.length > 0) {
-    const { data, error: insErr } = await supabase.from("barbers").insert(
-      validBarbers.map(b => ({
-        shop_id: barbershop.id, name: b.name, role: b.role || "Barber",
-      }))
-    ).select()
-    console.log("Insert result:", data, "Insert error:", insErr)
-    if (insErr) { showToast("Error: " + insErr.message); return }
+    showToast("Αποθηκεύτηκε ✓")
   }
-  showToast("Αποθηκεύτηκε ✓")
-}
+
+  async function uploadBarberPhoto(file: File, index: number) {
+    if (!user) return
+    setUploadingBarberPhoto(index)
+    try {
+      const path = `${user.id}/barber-${index}-${Date.now()}`
+      const { error: upErr } = await supabase.storage.from("shop-media").upload(path, file, {upsert:true})
+      if (upErr) { showToast("Σφάλμα upload!"); return }
+      const { data } = supabase.storage.from("shop-media").getPublicUrl(path)
+      const n = [...teamMembers]
+      n[index].photo_url = data.publicUrl
+      setTeamMembers(n)
+      showToast("Φωτογραφία ανέβηκε ✓")
+    } catch { showToast("Σφάλμα!") }
+    setUploadingBarberPhoto(null)
+  }
 
   async function uploadPhoto(file: File) {
     if (!barbershop?.id || !user) return
     setUploadingPhoto(true)
     try {
       const path = `${user.id}/photo-${Date.now()}`
-      const { error: upErr } = await supabase.storage
-        .from("shop-media").upload(path, file, { upsert: true })
+      const { error: upErr } = await supabase.storage.from("shop-media").upload(path, file, {upsert:true})
       if (upErr) { showToast("Σφάλμα upload!"); return }
       const { data } = supabase.storage.from("shop-media").getPublicUrl(path)
       const { data: newPhoto } = await supabase.from("portfolio_photos").insert({
-        shop_id: barbershop.id, url: data.publicUrl, is_cover: photos.length === 0,
+        shop_id:barbershop.id, url:data.publicUrl, is_cover:photos.length===0,
       }).select().single()
-      if (newPhoto) setPhotos(p => [...p, newPhoto])
+      if (newPhoto) setPhotos(p=>[...p,newPhoto])
       showToast("Φωτογραφία προστέθηκε ✓")
     } catch { showToast("Σφάλμα!") }
     setUploadingPhoto(false)
@@ -273,50 +222,64 @@ async function handleCancelPlan() {
 
   async function deletePhoto(id: string) {
     await supabase.from("portfolio_photos").delete().eq("id", id)
-    setPhotos(p => p.filter(ph => ph.id !== id))
+    setPhotos(p=>p.filter(ph=>ph.id!==id))
     showToast("Φωτογραφία διαγράφηκε")
   }
 
   async function setCover(id: string) {
-    await supabase.from("portfolio_photos").update({ is_cover: false }).eq("shop_id", barbershop.id)
-    await supabase.from("portfolio_photos").update({ is_cover: true }).eq("id", id)
-    setPhotos(p => p.map(ph => ({ ...ph, is_cover: ph.id === id })))
+    await supabase.from("portfolio_photos").update({is_cover:false}).eq("shop_id", barbershop.id)
+    await supabase.from("portfolio_photos").update({is_cover:true}).eq("id", id)
+    setPhotos(p=>p.map(ph=>({...ph,is_cover:ph.id===id})))
     showToast("Εξώφυλλο ενημερώθηκε ✓")
   }
 
-  const todayAppts = appointments.filter(a => a.date === today && a.status !== "cancelled")
-  const upcomingAppts = appointments.filter(a => a.date > today && a.status !== "cancelled")
-  const totalRevenue = appointments.filter(a => a.status !== "cancelled").length * 15
-  const cancelledCount = appointments.filter(a => a.status === "cancelled").length
+  const todayAppts = appointments.filter(a => a.date===today && a.status!=="cancelled")
+  const upcomingAppts = appointments.filter(a => a.date>today && a.status!=="cancelled")
+  const cancelledCount = appointments.filter(a => a.status==="cancelled").length
+  const totalRevenue = appointments
+    .filter(a => a.status!=="cancelled")
+    .reduce((sum, a) => {
+      const svc = editServices.find(s => s.name === a.service)
+      return sum + (svc?.price || 0)
+    }, 0)
 
   const weekDays = DAYS.map((name, i) => {
     const d = new Date()
-    const cur = d.getDay() === 0 ? 6 : d.getDay() - 1
+    const cur = d.getDay()===0 ? 6 : d.getDay()-1
     const diff = i - cur
     const date = new Date(d)
-    date.setDate(d.getDate() + diff)
+    date.setDate(d.getDate()+diff)
     const iso = date.toISOString().split("T")[0]
     return {
-      name, iso, isToday: iso === today,
-      appts: appointments.filter(a => a.date === iso && a.status !== "cancelled")
+      name, iso, isToday:iso===today,
+      appts: appointments.filter(a => a.date===iso && a.status!=="cancelled")
     }
   })
 
   const initials = (user?.user_metadata?.full_name || user?.email || "?")
-    .split(" ").map((w: string) => w[0]).join("").slice(0,2).toUpperCase()
+    .split(" ").map((w:string) => w[0]).join("").slice(0,2).toUpperCase()
 
-  const maxBarbers = barbershop?.plan === "duo" ? 2 : barbershop?.plan === "team" ? 10 : 1
+  const maxBarbers = barbershop?.plan==="duo" ? 2 : barbershop?.plan==="team" ? 10 : 1
+
+  // Πότε λήγει το πλάνο (2 μήνες από εγγραφή)
+  const planExpiry = barbershop?.created_at
+    ? new Date(new Date(barbershop.created_at).getTime() + 60*24*60*60*1000)
+    : null
+  const daysLeft = planExpiry
+    ? Math.max(0, Math.ceil((planExpiry.getTime() - Date.now()) / (1000*60*60*24)))
+    : null
 
   const navItems = [
-  {v:"overview", icon:"⊞", label:"Επισκόπηση"},
-  {v:"week", icon:"📅", label:"Εβδομάδα"},
-  {v:"services", icon:"✂️", label:"Υπηρεσίες"},
-  {v:"hours", icon:"🕒", label:"Ωράριο"},
-  {v:"team", icon:"👥", label:"Ομάδα"},
-  {v:"gallery", icon:"🖼️", label:"Gallery"},
-  {v:"settings", icon:"⚙️", label:"Ρυθμίσεις"},
-  {v:"plan", icon:"💳", label:"Πλάνο"},
-]
+    {v:"overview", icon:"⊞", label:"Επισκόπηση"},
+    {v:"week", icon:"📅", label:"Εβδομάδα"},
+    {v:"services", icon:"✂️", label:"Υπηρεσίες"},
+    {v:"hours", icon:"🕒", label:"Ωράριο"},
+    {v:"team", icon:"👥", label:"Ομάδα"},
+    {v:"gallery", icon:"🖼️", label:"Gallery"},
+    {v:"reviews", icon:"⭐", label:"Κριτικές"},
+    {v:"plan", icon:"💳", label:"Πλάνο"},
+    {v:"settings", icon:"⚙️", label:"Ρυθμίσεις"},
+  ]
 
   if (loading) return (
     <div style={{background:"#0a0f1e",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter,sans-serif",color:"#64748b",fontSize:16}}>
@@ -338,20 +301,20 @@ async function handleCancelPlan() {
         html,body{height:100%;}
         body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;}
         h1,h2,h3{font-family:'Outfit',sans-serif;}
-        button,input,select{font-family:inherit;}
+        button,input,select,textarea{font-family:inherit;}
         @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
         @keyframes slideIn{from{transform:translateX(-100%);}to{transform:translateX(0);}}
         .layout{display:flex;min-height:100vh;}
-        .sidebar{width:220px;flex-shrink:0;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:hidden;}
+        .sidebar{width:220px;flex-shrink:0;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
         .sidebar-top{padding:20px 16px;border-bottom:1px solid var(--border);}
         .brand{font-family:'Outfit',sans-serif;font-size:18px;font-weight:800;background:linear-gradient(135deg,var(--blue),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;cursor:pointer;}
         .shop-name-side{font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;}
-        .sidebar-nav{padding:12px 10px;flex:1;overflow-y:auto;}
+        .sidebar-nav{padding:12px 10px;flex:1;}
         .nav-section{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);padding:8px 8px 4px;}
-        .nav-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:var(--muted2);cursor:pointer;transition:all .18s;background:none;border:none;width:100%;text-align:left;margin-bottom:2px;}
+        .nav-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:500;color:var(--muted2);cursor:pointer;transition:all .18s;background:none;border:none;width:100%;text-align:left;margin-bottom:2px;}
         .nav-btn:hover{background:rgba(255,255,255,.04);color:var(--text);}
         .nav-btn.active{background:var(--blue-soft);color:#93c5fd;font-weight:600;}
-        .nav-btn .nav-ic{font-size:16px;width:20px;text-align:center;flex-shrink:0;}
+        .nav-btn .nav-ic{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
         .sidebar-foot{padding:14px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
         .avatar{width:34px;height:34px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,var(--gold),#b45309);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#1a0f00;}
         .foot-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -364,9 +327,8 @@ async function handleCancelPlan() {
         .page-title{font-family:'Outfit',sans-serif;font-size:17px;font-weight:700;}
         .page-sub{font-size:12px;color:var(--muted);margin-top:1px;}
         .topbar-right{display:flex;align-items:center;gap:10px;}
-        .status-badge{display:flex;align-items:center;gap:7px;padding:7px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:999px;font-size:12px;font-weight:600;color:var(--green);}
-        .status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
-        @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+        .preview-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:999px;font-size:12px;font-weight:600;color:#93c5fd;cursor:pointer;transition:all .2s;}
+        .preview-btn:hover{background:rgba(59,130,246,.2);}
         .icon-btn-top{width:36px;height:36px;border-radius:10px;background:var(--card2);border:1px solid var(--border);color:var(--muted2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .2s;}
         .icon-btn-top:hover{border-color:var(--blue);color:var(--blue);}
         .main{flex:1;display:flex;flex-direction:column;min-width:0;}
@@ -392,8 +354,8 @@ async function handleCancelPlan() {
         .panel-head h2{font-size:14.5px;font-weight:700;}
         .link-btn{font-size:12px;color:var(--blue);cursor:pointer;background:none;border:none;font-weight:600;}
         .appt-list{display:flex;flex-direction:column;gap:8px;}
-        .appt-card{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card2);border:1px solid var(--border);border-radius:12px;transition:all .2s;}
-        .appt-card:hover{border-color:rgba(59,130,246,.2);}
+        .appt-card{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card2);border:1px solid var(--border);border-radius:12px;transition:all .2s;cursor:pointer;}
+        .appt-card:hover{border-color:rgba(59,130,246,.3);transform:translateY(-1px);}
         .appt-card.cancelled{opacity:.4;}
         .appt-time-box{background:var(--blue-soft);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:6px 10px;text-align:center;flex-shrink:0;min-width:52px;}
         .appt-time{font-size:13px;font-weight:800;color:var(--blue);}
@@ -416,7 +378,8 @@ async function handleCancelPlan() {
         .day-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
         .day-name{font-size:12px;font-weight:700;}
         .day-count{font-size:10px;color:var(--muted);}
-        .mini-appt{background:var(--card);border-radius:8px;padding:7px 8px;margin-bottom:6px;border:1px solid var(--border);}
+        .mini-appt{background:var(--card);border-radius:8px;padding:7px 8px;margin-bottom:6px;border:1px solid var(--border);cursor:pointer;transition:all .15s;}
+        .mini-appt:hover{border-color:rgba(59,130,246,.3);}
         .mini-time{font-size:10.5px;font-weight:700;color:var(--blue);}
         .mini-name{font-size:12px;font-weight:600;margin-top:1px;}
         .mini-svc{font-size:10.5px;color:var(--muted);margin-top:1px;}
@@ -434,15 +397,18 @@ async function handleCancelPlan() {
         .hour-row.off{opacity:.45;}
         .hour-day{font-size:13px;font-weight:700;width:36px;flex-shrink:0;}
         .hour-inp{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:12.5px;color:var(--text);font-family:'Inter',sans-serif;outline:none;}
-        .hour-inp:focus{border-color:var(--blue);}
         .hour-sep{color:var(--muted);font-size:12px;}
         .hour-closed{font-size:12px;color:var(--muted);flex:1;}
         .toggle{width:40px;height:22px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--border);position:relative;cursor:pointer;flex-shrink:0;margin-left:auto;transition:all .25s;}
         .toggle::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:all .25s;}
         .toggle.on{background:rgba(59,130,246,.2);border-color:rgba(59,130,246,.4);}
         .toggle.on::after{left:21px;background:var(--blue);}
-        .team-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;}
-        .upgrade-box{text-align:center;padding:32px;background:var(--card2);border-radius:14px;border:1px dashed var(--border);}
+        .team-card{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:14px;}
+        .team-avatar{width:52px;height:52px;border-radius:50%;flex-shrink:0;overflow:hidden;border:2px solid var(--border);background:linear-gradient(135deg,var(--blue-soft),var(--card2));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;position:relative;}
+        .team-avatar img{width:100%;height:100%;object-fit:cover;}
+        .team-avatar-upload{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;opacity:0;transition:.2s;cursor:pointer;font-size:16px;}
+        .team-card:hover .team-avatar-upload{opacity:1;}
+        .team-inputs{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:8px;}
         .gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
         .gallery-item{aspect-ratio:1;border-radius:14px;overflow:hidden;position:relative;border:1px solid var(--border);background:var(--card2);}
         .gallery-item img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s;}
@@ -456,6 +422,10 @@ async function handleCancelPlan() {
         .gallery-add{aspect-ratio:1;border-radius:14px;border:2px dashed rgba(59,130,246,.25);background:rgba(59,130,246,.04);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:#60a5fa;font-size:12px;font-weight:600;gap:6px;transition:all .2s;}
         .gallery-add:hover{border-color:var(--blue);background:var(--blue-soft);}
         .gallery-add .plus{font-size:28px;}
+        .review-card{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px;}
+        .plan-card-d{background:var(--card2);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:14px;}
+        .plan-expiry-bar{height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin:12px 0;}
+        .plan-expiry-fill{height:100%;border-radius:3px;transition:width .4s;}
         .settings-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:14px;}
         .settings-card h3{font-size:15px;font-weight:700;margin-bottom:16px;}
         .settings-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);}
@@ -467,21 +437,27 @@ async function handleCancelPlan() {
         .btn.primary{background:linear-gradient(135deg,var(--blue),#1d4ed8);border:none;color:#fff;box-shadow:0 6px 20px -6px var(--blue-glow);}
         .btn.primary:hover{filter:brightness(1.08);transform:translateY(-1px);}
         .btn.danger{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.2);color:var(--red);}
+        .btn.danger:hover{background:rgba(239,68,68,.15);}
         .btn.sm{padding:7px 13px;font-size:12px;}
         .quick-actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;}
-        .overlay{position:fixed;inset:0;z-index:60;background:rgba(5,10,20,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;}
-        .modal{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:26px;width:100%;max-width:420px;animation:fadeIn .25s ease;}
+        .overlay{position:fixed;inset:0;z-index:60;background:rgba(5,10,20,.8);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;}
+        .modal{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:26px;width:100%;max-width:460px;animation:fadeIn .25s ease;max-height:90vh;overflow-y:auto;}
         .modal h3{font-size:17px;font-weight:700;margin-bottom:6px;}
-        .modal p{font-size:13px;color:var(--muted2);margin-bottom:20px;line-height:1.6;}
-        .modal-field{margin-bottom:14px;}
+        .modal p{font-size:13px;color:var(--muted2);margin-bottom:16px;line-height:1.6;}
+        .modal-field{margin-bottom:12px;}
         .modal-field label{display:block;font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;}
-        .modal-field input,.modal-field select{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;color:var(--text);outline:none;}
+        .modal-field input,.modal-field select,.modal-field textarea{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;color:var(--text);outline:none;transition:all .2s;}
         .modal-field input:focus,.modal-field select:focus{border-color:var(--blue);}
+        .modal-field textarea{resize:none;min-height:60px;}
         .modal-actions{display:flex;gap:10px;margin-top:20px;}
         .modal-actions .btn{flex:1;text-align:center;}
         .time-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;}
         .time-slot{padding:9px 4px;text-align:center;border-radius:9px;border:1px solid var(--border);background:var(--card2);font-size:12px;font-weight:700;cursor:pointer;transition:all .18s;color:var(--muted2);}
         .time-slot:hover,.time-slot.sel{background:var(--blue-soft);border-color:rgba(59,130,246,.35);color:var(--blue);}
+        .detail-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13.5px;}
+        .detail-row:last-child{border-bottom:none;}
+        .detail-label{color:var(--muted2);font-weight:500;}
+        .detail-val{font-weight:700;text-align:right;}
         .mobile-overlay{display:none;}
         .bottom-nav{display:none;}
         .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card);border:1px solid var(--border);color:var(--text);padding:11px 20px;border-radius:12px;font-size:13px;font-weight:600;opacity:0;transition:all .25s;pointer-events:none;z-index:99;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.3);}
@@ -496,35 +472,36 @@ async function handleCancelPlan() {
           .menu-btn{display:flex;}
           .content{padding:16px;padding-bottom:80px;}
           .week-grid{grid-template-columns:repeat(2,1fr);}
-          .bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--card);border-top:1px solid var(--border);padding:8px 4px calc(8px + env(safe-area-inset-bottom));justify-content:space-around;}
-          .bn-item{display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--muted);font-size:9px;font-weight:600;padding:5px 6px;border-radius:10px;cursor:pointer;}
-          .bn-item .ic{font-size:17px;}
+          .bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--card);border-top:1px solid var(--border);padding:8px 4px calc(8px + env(safe-area-inset-bottom));justify-content:space-around;overflow-x:auto;}
+          .bn-item{display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--muted);font-size:8.5px;font-weight:600;padding:5px 6px;border-radius:10px;cursor:pointer;flex-shrink:0;}
+          .bn-item .ic{font-size:16px;}
           .bn-item.active{color:var(--blue);}
           .gallery-grid{grid-template-columns:repeat(2,1fr);}
-          .team-row{grid-template-columns:1fr auto;}
+          .team-inputs{grid-template-columns:1fr;}
+          .svc-row,.svc-head{grid-template-columns:1fr 70px 70px 30px;}
         }
         @media(max-width:480px){.stats{grid-template-columns:repeat(2,1fr);}.week-grid{grid-template-columns:1fr;}}
       `}</style>
 
       <div className="layout">
-        {sidebarOpen && <div className="mobile-overlay" onClick={() => setSidebarOpen(false)}/>}
-        <aside className={`sidebar ${sidebarOpen ? "mobile-open" : ""}`}>
+        {sidebarOpen && <div className="mobile-overlay" onClick={()=>setSidebarOpen(false)}/>}
+        <aside className={`sidebar ${sidebarOpen?"mobile-open":""}`}>
           <div className="sidebar-top">
-            <div className="brand" onClick={() => window.location.href="/"}>BarberBook</div>
-            <div className="shop-name-side">{barbershop?.name || "Dashboard"}</div>
+            <div className="brand" onClick={()=>window.location.href="/"}>BarberBook</div>
+            <div className="shop-name-side">{barbershop?.name||"Dashboard"}</div>
           </div>
           <div className="sidebar-nav">
             <div className="nav-section">Κύριο</div>
-            {navItems.slice(0,2).map(n => (
+            {navItems.slice(0,2).map(n=>(
               <button key={n.v} className={`nav-btn ${view===n.v?"active":""}`}
-                onClick={() => { setView(n.v); setSidebarOpen(false) }}>
+                onClick={()=>{setView(n.v);setSidebarOpen(false)}}>
                 <span className="nav-ic">{n.icon}</span>{n.label}
               </button>
             ))}
             <div className="nav-section" style={{marginTop:8}}>Κατάστημα</div>
-            {navItems.slice(2).map(n => (
+            {navItems.slice(2).map(n=>(
               <button key={n.v} className={`nav-btn ${view===n.v?"active":""}`}
-                onClick={() => { setView(n.v); setSidebarOpen(false) }}>
+                onClick={()=>{setView(n.v);setSidebarOpen(false)}}>
                 <span className="nav-ic">{n.icon}</span>{n.label}
               </button>
             ))}
@@ -532,104 +509,106 @@ async function handleCancelPlan() {
           <div className="sidebar-foot">
             <div className="avatar">{initials}</div>
             <div style={{minWidth:0}}>
-              <div className="foot-name">{user?.user_metadata?.full_name || user?.email}</div>
-              <div className="foot-role">Owner · {barbershop?.plan || "freemium"}</div>
+              <div className="foot-name">{user?.user_metadata?.full_name||user?.email}</div>
+              <div className="foot-role">Owner · {barbershop?.plan||"freemium"}</div>
             </div>
             <button className="logout-btn"
-              onClick={async () => { await supabase.auth.signOut(); window.location.href="/" }}>
-              ⏻
-            </button>
+              onClick={async()=>{await supabase.auth.signOut();window.location.href="/"}}>⏻</button>
           </div>
         </aside>
 
         <div className="main">
           <div className="topbar">
             <div className="topbar-left">
-              <button className="menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
+              <button className="menu-btn" onClick={()=>setSidebarOpen(!sidebarOpen)}>☰</button>
               <div>
-                <div className="page-title">
-                  {navItems.find(n => n.v === view)?.label || "Dashboard"}
-                </div>
-                <div className="page-sub">{todayName} · {barbershop?.name || "BarberBook"}</div>
+                <div className="page-title">{navItems.find(n=>n.v===view)?.label||"Dashboard"}</div>
+                <div className="page-sub">{todayName} · {barbershop?.name||"BarberBook"}</div>
               </div>
             </div>
             <div className="topbar-right">
-              <div className="status-badge"><span className="status-dot"/>Ανοιχτά</div>
-              <button className="icon-btn-top" onClick={() => setModal("new")} title="Νέο Ραντεβού">+</button>
+              {barbershop?.id && (
+                <button className="preview-btn"
+                  onClick={()=>window.open(`/barbershops/${barbershop.id}`,"_blank")}>
+                  👁️ Preview
+                </button>
+              )}
+              <button className="icon-btn-top" onClick={()=>setModal("new")} title="Νέο Ραντεβού">+</button>
             </div>
           </div>
 
           <div className="content">
 
             {/* OVERVIEW */}
-            {view === "overview" && (
-              <>
-                <div className="stats">
-                  <div className="stat blue"><div className="stat-label">Σήμερα</div><div className="stat-val blue">{todayAppts.length}</div><div className="stat-delta">ραντεβού</div></div>
-                  <div className="stat gold"><div className="stat-label">Εκτιμ. Έσοδα</div><div className="stat-val gold">€{totalRevenue}</div><div className="stat-delta">συνολικά</div></div>
-                  <div className="stat green"><div className="stat-label">Επερχόμενα</div><div className="stat-val green">{upcomingAppts.length}</div><div className="stat-delta">ραντεβού</div></div>
-                  <div className="stat purple"><div className="stat-label">Ακυρώσεις</div><div className="stat-val purple">{cancelledCount}</div><div className="stat-delta">σύνολο</div></div>
-                </div>
-                <div className="grid2">
-                  <div className="panel">
-                    <div className="panel-head">
-                      <h2>📅 Σημερινό Πρόγραμμα</h2>
-                      <button className="link-btn" onClick={() => setView("week")}>Εβδομάδα →</button>
-                    </div>
-                    {todayAppts.length === 0 ? (
-                      <div className="empty"><span className="empty-icon">😴</span>Κανένα ραντεβού σήμερα</div>
-                    ) : (
-                      <div className="appt-list">
-                        {todayAppts.map(a => (
-                          <ApptCard key={a.id} appt={a}
-                            onCancel={() => { setSelectedAppt(a); setModal("cancel") }}
-                            onReschedule={() => { setSelectedAppt(a); setModal("reschedule") }}/>
-                        ))}
-                      </div>
-                    )}
-                    <div className="quick-actions">
-                      <button className="btn primary sm" onClick={() => setModal("new")}>+ Νέο Ραντεβού</button>
-                      <button className="btn sm" onClick={() => setModal("block")}>🚫 Αποκλεισμός</button>
-                    </div>
+            {view==="overview" && (<>
+              <div className="stats">
+                <div className="stat blue"><div className="stat-label">Σήμερα</div><div className="stat-val blue">{todayAppts.length}</div><div className="stat-delta">ραντεβού</div></div>
+                <div className="stat gold"><div className="stat-label">Έσοδα</div><div className="stat-val gold">€{totalRevenue}</div><div className="stat-delta">συνολικά</div></div>
+                <div className="stat green"><div className="stat-label">Επερχόμενα</div><div className="stat-val green">{upcomingAppts.length}</div><div className="stat-delta">ραντεβού</div></div>
+                <div className="stat purple"><div className="stat-label">Ακυρώσεις</div><div className="stat-val purple">{cancelledCount}</div><div className="stat-delta">σύνολο</div></div>
+              </div>
+              <div className="grid2">
+                <div className="panel">
+                  <div className="panel-head">
+                    <h2>📅 Σημερινό Πρόγραμμα</h2>
+                    <button className="link-btn" onClick={()=>setView("week")}>Εβδομάδα →</button>
                   </div>
-                  <div className="panel">
-                    <div className="panel-head">
-                      <h2>📋 Επερχόμενα</h2>
-                      <span style={{fontSize:12,color:"var(--muted)"}}>{upcomingAppts.length}</span>
+                  {todayAppts.length===0 ? (
+                    <div className="empty"><span className="empty-icon">😴</span>Κανένα ραντεβού σήμερα</div>
+                  ) : (
+                    <div className="appt-list">
+                      {todayAppts.map(a=>(
+                        <ApptCard key={a.id} appt={a}
+                          onClick={()=>{setSelectedAppt(a);setModal("detail")}}
+                          onCancel={()=>{setSelectedAppt(a);setModal("cancel")}}
+                          onReschedule={()=>{setSelectedAppt(a);setModal("reschedule")}}/>
+                      ))}
                     </div>
-                    {upcomingAppts.length === 0 ? (
-                      <div className="empty"><span className="empty-icon">📭</span>Κανένα επερχόμενο</div>
-                    ) : (
-                      <div className="appt-list">
-                        {upcomingAppts.slice(0,5).map(a => (
-                          <ApptCard key={a.id} appt={a}
-                            onCancel={() => { setSelectedAppt(a); setModal("cancel") }}
-                            onReschedule={() => { setSelectedAppt(a); setModal("reschedule") }}/>
-                        ))}
-                      </div>
-                    )}
+                  )}
+                  <div className="quick-actions">
+                    <button className="btn primary sm" onClick={()=>setModal("new")}>+ Νέο Ραντεβού</button>
+                    <button className="btn sm" onClick={()=>setModal("block")}>🚫 Αποκλεισμός</button>
                   </div>
                 </div>
-              </>
-            )}
+                <div className="panel">
+                  <div className="panel-head">
+                    <h2>📋 Επερχόμενα</h2>
+                    <span style={{fontSize:12,color:"var(--muted)"}}>{upcomingAppts.length}</span>
+                  </div>
+                  {upcomingAppts.length===0 ? (
+                    <div className="empty"><span className="empty-icon">📭</span>Κανένα επερχόμενο</div>
+                  ) : (
+                    <div className="appt-list">
+                      {upcomingAppts.slice(0,6).map(a=>(
+                        <ApptCard key={a.id} appt={a}
+                          onClick={()=>{setSelectedAppt(a);setModal("detail")}}
+                          onCancel={()=>{setSelectedAppt(a);setModal("cancel")}}
+                          onReschedule={()=>{setSelectedAppt(a);setModal("reschedule")}}/>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>)}
 
             {/* WEEK */}
-            {view === "week" && (
+            {view==="week" && (
               <div className="panel">
                 <div className="panel-head">
                   <h2>📅 Εβδομαδιαίο Πρόγραμμα</h2>
-                  <button className="btn sm primary" onClick={() => setModal("new")}>+ Νέο</button>
+                  <button className="btn sm primary" onClick={()=>setModal("new")}>+ Νέο</button>
                 </div>
                 <div className="week-grid">
-                  {weekDays.map(d => (
+                  {weekDays.map(d=>(
                     <div key={d.name} className={`day-col ${d.isToday?"today":""}`}>
                       <div className="day-head">
                         <span className="day-name">{d.name.slice(0,3)}</span>
                         <span className="day-count">{d.appts.length}</span>
                       </div>
-                      {d.appts.length === 0 ? <div className="day-empty">—</div> :
-                        d.appts.map(a => (
-                          <div key={a.id} className="mini-appt">
+                      {d.appts.length===0 ? <div className="day-empty">—</div> :
+                        d.appts.map(a=>(
+                          <div key={a.id} className="mini-appt"
+                            onClick={()=>{setSelectedAppt(a);setModal("detail")}}>
                             <div className="mini-time">{a.time}</div>
                             <div className="mini-name">{a.customer_name}</div>
                             <div className="mini-svc">{a.service}</div>
@@ -643,24 +622,21 @@ async function handleCancelPlan() {
             )}
 
             {/* SERVICES */}
-            {view === "services" && (
+            {view==="services" && (
               <div className="panel" style={{maxWidth:580}}>
                 <div className="panel-head">
                   <h2>✂️ Υπηρεσίες & Τιμές</h2>
-                  <button className="btn sm primary" onClick={async () => {
+                  <button className="btn sm primary" onClick={async()=>{
                     if (!barbershop?.id) return
-                    await supabase.from("services").delete().eq("shop_id", barbershop.id)
+                    await supabase.from("services").delete().eq("shop_id",barbershop.id)
                     await supabase.from("services").insert(
-                      editServices.map(s => ({
-                        shop_id: barbershop.id, name: s.name,
-                        price: s.price, duration_minutes: s.duration,
-                      }))
+                      editServices.map(s=>({shop_id:barbershop.id,name:s.name,price:s.price,duration_minutes:s.duration}))
                     )
                     showToast("Αποθηκεύτηκε ✓")
                   }}>Αποθήκευση</button>
                 </div>
                 <div className="svc-head"><span>Υπηρεσία</span><span>Λεπτά</span><span>Τιμή €</span><span/></div>
-                {editServices.map((s,i) => (
+                {editServices.map((s,i)=>(
                   <div key={i} className="svc-row">
                     <input className="svc-inp" value={s.name} onChange={e=>{const n=[...editServices];n[i].name=e.target.value;setEditServices(n)}}/>
                     <input className="svc-inp" type="number" value={s.duration} onChange={e=>{const n=[...editServices];n[i].duration=+e.target.value;setEditServices(n)}}/>
@@ -675,39 +651,29 @@ async function handleCancelPlan() {
             )}
 
             {/* HOURS */}
-            {view === "hours" && (
+            {view==="hours" && (
               <div className="panel" style={{maxWidth:480}}>
                 <div className="panel-head">
                   <h2>🕒 Ωράριο Λειτουργίας</h2>
-                  <button className="btn sm primary" onClick={async () => {
+                  <button className="btn sm primary" onClick={async()=>{
                     if (!barbershop?.id) return
-                    await supabase.from("working_hours").delete().eq("shop_id", barbershop.id)
+                    await supabase.from("working_hours").delete().eq("shop_id",barbershop.id)
                     await supabase.from("working_hours").insert(
-                      hours.map((h, i) => ({
-                        shop_id: barbershop.id, day_of_week: i,
-                        is_active: h.active,
-                        open_time: h.active ? h.open : null,
-                        close_time: h.active ? h.close : null,
-                      }))
+                      hours.map((h,i)=>({shop_id:barbershop.id,day_of_week:i,is_active:h.active,open_time:h.active?h.open:null,close_time:h.active?h.close:null}))
                     )
                     showToast("Αποθηκεύτηκε ✓")
                   }}>Αποθήκευση</button>
                 </div>
-                {hours.map((h,i) => (
+                {hours.map((h,i)=>(
                   <div key={h.day} className={`hour-row ${h.active?"":"off"}`}>
                     <span className="hour-day">{h.day}</span>
-                    {h.active ? (
-                      <>
-                        <input type="time" className="hour-inp" value={h.open}
-                          onChange={e=>{const n=[...hours];n[i].open=e.target.value;setHours(n)}}/>
-                        <span className="hour-sep">–</span>
-                        <input type="time" className="hour-inp" value={h.close}
-                          onChange={e=>{const n=[...hours];n[i].close=e.target.value;setHours(n)}}/>
-                      </>
-                    ) : <span className="hour-closed">Κλειστά</span>}
+                    {h.active ? (<>
+                      <input type="time" className="hour-inp" value={h.open} onChange={e=>{const n=[...hours];n[i].open=e.target.value;setHours(n)}}/>
+                      <span className="hour-sep">–</span>
+                      <input type="time" className="hour-inp" value={h.close} onChange={e=>{const n=[...hours];n[i].close=e.target.value;setHours(n)}}/>
+                    </>) : <span className="hour-closed">Κλειστά</span>}
                     <div className={`toggle ${h.active?"on":""}`} onClick={()=>{
-                      const n=[...hours]
-                      n[i].active=!n[i].active
+                      const n=[...hours];n[i].active=!n[i].active
                       if(n[i].active&&!n[i].open){n[i].open="09:00";n[i].close="19:00"}
                       setHours(n)
                     }}/>
@@ -717,243 +683,279 @@ async function handleCancelPlan() {
             )}
 
             {/* TEAM */}
-            {view === "team" && (
-              <div className="panel" style={{maxWidth:520}}>
+            {view==="team" && (
+              <div className="panel" style={{maxWidth:560}}>
                 <div className="panel-head">
                   <h2>👥 Ομάδα Barbers</h2>
-                  {maxBarbers > 1 && (
-                    <button className="btn sm primary" onClick={saveTeam}>Αποθήκευση</button>
-                  )}
+                  {maxBarbers>1 && <button className="btn sm primary" onClick={saveTeam}>Αποθήκευση</button>}
                 </div>
-                {maxBarbers === 1 ? (
-                  <div className="upgrade-box">
+                {maxBarbers===1 ? (
+                  <div style={{textAlign:"center",padding:"32px",background:"var(--card2)",borderRadius:14,border:"1px dashed var(--border)"}}>
                     <div style={{fontSize:36,marginBottom:12}}>👤</div>
-                    <p style={{fontSize:14,fontWeight:600,marginBottom:6}}>Πλάνο: {barbershop?.plan || "freemium"}</p>
+                    <p style={{fontSize:14,fontWeight:600,marginBottom:6}}>Πλάνο: {barbershop?.plan||"freemium"}</p>
                     <p style={{fontSize:13,color:"var(--muted)",marginBottom:16}}>Αναβάθμισε σε Duo ή Team για να προσθέσεις barbers!</p>
-                    <button className="btn primary sm" onClick={() => window.location.href="/businesses"}>
-                      Αναβάθμισε Πλάνο →
-                    </button>
+                    <button className="btn primary sm" onClick={()=>setView("plan")}>Αναβάθμισε →</button>
                   </div>
-                ) : (
-                  <>
-                    <p style={{fontSize:13,color:"var(--muted)",marginBottom:16}}>
-                      Πλάνο <strong style={{color:"var(--text)"}}>{barbershop?.plan}</strong> · μέγιστο {maxBarbers} barbers
-                    </p>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:8,marginBottom:8,fontSize:10.5,color:"var(--muted)",textTransform:"uppercase",letterSpacing:".3px",fontWeight:600,padding:"0 2px"}}>
-                      <span>Όνομα</span><span>Ρόλος</span><span/>
-                    </div>
-                    {teamMembers.map((b,i) => (
-                      <div key={i} className="team-row">
-                        <input className="svc-inp" value={b.name} placeholder="π.χ. Νίκος Π."
+                ) : (<>
+                  <p style={{fontSize:13,color:"var(--muted)",marginBottom:16}}>
+                    Πλάνο <strong style={{color:"var(--text)"}}>{barbershop?.plan}</strong> · μέγιστο {maxBarbers} barbers
+                  </p>
+                  {teamMembers.map((b,i)=>(
+                    <div key={i} className="team-card">
+                      <div className="team-avatar">
+                        {b.photo_url ? (
+                          <img src={b.photo_url} alt={b.name}/>
+                        ) : (
+                          <span>{b.name?b.name[0].toUpperCase():"?"}</span>
+                        )}
+                        <label className="team-avatar-upload">
+                          {uploadingBarberPhoto===i ? "⏳" : "📷"}
+                          <input type="file" accept="image/*" style={{display:"none"}}
+                            onChange={e=>{const f=e.target.files?.[0];if(f)uploadBarberPhoto(f,i)}}/>
+                        </label>
+                      </div>
+                      <div className="team-inputs">
+                        <input className="svc-inp" value={b.name} placeholder="Όνομα barber"
                           onChange={e=>{const n=[...teamMembers];n[i].name=e.target.value;setTeamMembers(n)}}/>
-                        <input className="svc-inp" value={b.role} placeholder="Barber"
+                        <input className="svc-inp" value={b.role} placeholder="Ρόλος"
                           onChange={e=>{const n=[...teamMembers];n[i].role=e.target.value;setTeamMembers(n)}}/>
-                        <button className="del-btn" onClick={()=>setTeamMembers(p=>p.filter((_,j)=>j!==i))}>✕</button>
                       </div>
-                    ))}
-                    {teamMembers.length < maxBarbers && (
-                      <button className="add-svc-btn"
-                        onClick={()=>setTeamMembers(p=>[...p,{name:"",role:"Barber"}])}>
-                        + Προσθήκη Barber ({teamMembers.length}/{maxBarbers})
-                      </button>
-                    )}
-                    {teamMembers.length >= maxBarbers && (
-                      <div style={{textAlign:"center",padding:"12px",background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.2)",borderRadius:10,marginTop:8,fontSize:13,color:"var(--gold)"}}>
-                        ✓ Έχεις φτάσει το όριο του πλάνου ({maxBarbers} barbers)
-                      </div>
-                    )}
-                  </>
-                )}
+                      <button className="del-btn" onClick={()=>setTeamMembers(p=>p.filter((_,j)=>j!==i))}>✕</button>
+                    </div>
+                  ))}
+                  {teamMembers.length<maxBarbers && (
+                    <button className="add-svc-btn" onClick={()=>setTeamMembers(p=>[...p,{name:"",role:"Barber"}])}>
+                      + Προσθήκη Barber ({teamMembers.length}/{maxBarbers})
+                    </button>
+                  )}
+                </>)}
               </div>
             )}
 
             {/* GALLERY */}
-            {view === "gallery" && (
+            {view==="gallery" && (
               <div className="panel">
                 <div className="panel-head">
-                  <h2>🖼️ Gallery Καταστήματος</h2>
-                  <span style={{fontSize:12,color:"var(--muted)"}}>{photos.length}/6 φωτογραφίες</span>
+                  <h2>🖼️ Gallery</h2>
+                  <span style={{fontSize:12,color:"var(--muted)"}}>{photos.length}/6</span>
                 </div>
-                <p style={{fontSize:13,color:"var(--muted)",marginBottom:16}}>
-                  Η πρώτη φωτογραφία εμφανίζεται στην κάρτα του καταστήματος. Η <strong style={{color:"var(--gold)"}}>Cover</strong> εμφανίζεται στο hero του προφίλ.
-                </p>
                 <div className="gallery-grid">
-                  {photos.map(ph => (
+                  {photos.map(ph=>(
                     <div key={ph.id} className="gallery-item">
                       <img src={ph.url} alt=""/>
                       {ph.is_cover && <div className="gallery-cover-badge">⭐ Cover</div>}
                       <div className="gallery-overlay">
-                        {!ph.is_cover && (
-                          <button className="gallery-btn cover" onClick={() => setCover(ph.id)}>⭐ Cover</button>
-                        )}
-                        <button className="gallery-btn del" onClick={() => deletePhoto(ph.id)}>🗑️ Διαγραφή</button>
+                        {!ph.is_cover && <button className="gallery-btn cover" onClick={()=>setCover(ph.id)}>⭐ Cover</button>}
+                        <button className="gallery-btn del" onClick={()=>deletePhoto(ph.id)}>🗑️</button>
                       </div>
                     </div>
                   ))}
-                  {photos.length < 6 && (
+                  {photos.length<6 && (
                     <label className="gallery-add">
-                      {uploadingPhoto ? (
-                        <span style={{fontSize:13}}>⏳ Ανεβαίνει...</span>
-                      ) : (
-                        <>
-                          <span className="plus">+</span>
-                          <span>Προσθήκη Φωτογραφίας</span>
-                          <input type="file" accept="image/*" style={{display:"none"}}
-                            onChange={async e => {
-                              const f = e.target.files?.[0]
-                              if (f) await uploadPhoto(f)
-                              e.target.value = ""
-                            }}/>
-                        </>
-                      )}
+                      {uploadingPhoto ? <span>⏳</span> : (<><span className="plus">+</span><span>Φωτογραφία</span></>)}
+                      <input type="file" accept="image/*" style={{display:"none"}}
+                        onChange={async e=>{const f=e.target.files?.[0];if(f)await uploadPhoto(f);e.target.value=""}}/>
                     </label>
                   )}
                 </div>
               </div>
             )}
 
-            {/* SETTINGS */}
-            {view === "settings" && (
-              <>
-                <div className="settings-card">
-                  <h3>👤 Στοιχεία Λογαριασμού</h3>
-                  <div className="settings-row"><span className="settings-label">Email</span><span className="settings-val">{user?.email}</span></div>
-                  <div className="settings-row"><span className="settings-label">Όνομα</span><span className="settings-val">{user?.user_metadata?.full_name||"—"}</span></div>
-                  <div className="settings-row"><span className="settings-label">Εγγραφή</span><span className="settings-val">{new Date(user?.created_at).toLocaleDateString("el-GR")}</span></div>
+            {/* REVIEWS */}
+            {view==="reviews" && (
+              <div className="panel">
+                <div className="panel-head">
+                  <h2>⭐ Κριτικές</h2>
+                  <span style={{fontSize:12,color:"var(--muted)"}}>{reviews.length} κριτικές</span>
                 </div>
-                {barbershop && (
-                  <div className="settings-card">
-                    <h3>💈 Στοιχεία Κουρείου</h3>
-                    <div className="settings-row"><span className="settings-label">Όνομα</span><span className="settings-val">{barbershop.name}</span></div>
-                    <div className="settings-row"><span className="settings-label">Πόλη</span><span className="settings-val">{barbershop.city}</span></div>
-                    <div className="settings-row"><span className="settings-label">Πλάνο</span><span className="settings-val">{barbershop.plan || "freemium"}</span></div>
-                    <div className="settings-row"><span className="settings-label">Barbers</span><span className="settings-val">{maxBarbers}</span></div>
-                    <div className="settings-row">
-                      <span className="settings-label">Link Κουρείου</span>
-                      <button className="btn sm" onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/barbershops/${barbershop.id}`)
-                        showToast("Link αντιγράφηκε ✓")
-                      }}>📋 Αντιγραφή Link</button>
+                {reviews.length===0 ? (
+                  <div className="empty"><span className="empty-icon">⭐</span>Δεν υπάρχουν κριτικές ακόμα</div>
+                ) : reviews.map(r=>(
+                  <div key={r.id} className="review-card">
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                      <div style={{fontWeight:700}}>{r.customer_name}</div>
+                      <div style={{color:"var(--gold)"}}>{"★".repeat(r.rating)}{"☆".repeat(5-r.rating)}</div>
                     </div>
+                    {r.comment && <div style={{fontSize:13,color:"var(--muted2)",lineHeight:1.6}}>{r.comment}</div>}
+                    <div style={{fontSize:11,color:"var(--muted)",marginTop:6}}>{new Date(r.created_at).toLocaleDateString("el-GR")}</div>
                   </div>
-                )}
-                <div className="settings-card">
-                  <h3>🔐 Ασφάλεια</h3>
-                  <div className="settings-row">
-                    <span className="settings-label">Αποσύνδεση</span>
-                    <button className="btn danger sm" onClick={async()=>{await supabase.auth.signOut();window.location.href="/"}}>Αποσύνδεση</button>
-                  </div>
-                </div>
-              </>
+                ))}
+              </div>
             )}
-          </div>
-        </div>
-      </div>
 
             {/* PLAN */}
-            {view === "plan" && (
-              <>
-                                <div className="settings-card" style={{
-                  background:"linear-gradient(135deg, rgba(59,130,246,.08), rgba(245,158,11,.06))",
-                  border:"1px solid rgba(59,130,246,.25)"
-                }}>
-                  <h3>💳 Τρέχον Πλάνο</h3>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:8}}>
+            {view==="plan" && (
+              <div style={{maxWidth:520}}>
+                <div className="plan-card-d">
+                  <h3 style={{fontFamily:"Outfit,sans-serif",fontSize:16,marginBottom:16}}>💳 Τρέχον Πλάνο</h3>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
                     <div>
-                      <div style={{fontFamily:"'Outfit',sans-serif",fontSize:26,fontWeight:800,textTransform:"capitalize"}}>
-                        {barbershop?.plan || "Freemium"}
-                      </div>
-                      <div style={{fontSize:12.5,color:"var(--muted)",marginTop:4}}>
-                        {maxBarbers} {maxBarbers===1?"barber":"barbers"} · Ενεργό
+                      <div style={{fontSize:20,fontWeight:800,fontFamily:"Outfit,sans-serif"}}>{barbershop?.plan?.toUpperCase()}</div>
+                      <div style={{fontSize:13,color:"var(--muted)",marginTop:2}}>
+                        {barbershop?.plan==="freemium" ? "€0/μήνα" : barbershop?.plan==="solo" ? "€20/μήνα" : barbershop?.plan==="duo" ? "€24/μήνα" : "€28/μήνα"}
                       </div>
                     </div>
-                    <div style={{width:52,height:52,borderRadius:14,background:"rgba(16,185,129,.12)",border:"1px solid rgba(16,185,129,.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>
-                      ✅
+                    <div style={{textAlign:"right"}}>
+                      {daysLeft !== null && (
+                        <>
+                          <div style={{fontSize:22,fontWeight:900,color:daysLeft<10?"var(--red)":"var(--green)",fontFamily:"Outfit,sans-serif"}}>{daysLeft}</div>
+                          <div style={{fontSize:11,color:"var(--muted)"}}>μέρες απομένουν</div>
+                        </>
+                      )}
                     </div>
                   </div>
-
-                  {barbershop?.plan && barbershop.plan !== "freemium" && (
+                  {daysLeft !== null && (
                     <>
-                      <div style={{marginTop:18,paddingTop:16,borderTop:"1px solid var(--border)"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12.5}}>
-                          <span style={{color:"var(--muted)"}}>Επόμενη ανανέωση</span>
-                          <span style={{fontWeight:700}}>
-                            {barbershop.plan_renews_at
-                              ? new Date(barbershop.plan_renews_at).toLocaleDateString("el-GR",{day:"2-digit",month:"long",year:"numeric"})
-                              : "—"}
-                          </span>
-                        </div>
-                        {barbershop.plan_renews_at && (
-                          <div style={{fontSize:11.5,color:"var(--muted)",marginTop:4}}>
-                            {Math.max(0, Math.ceil((new Date(barbershop.plan_renews_at).getTime() - Date.now()) / 86400000))} μέρες απομένουν
-                          </div>
-                        )}
+                      <div className="plan-expiry-bar">
+                        <div className="plan-expiry-fill" style={{
+                          width:`${Math.min(100,((60-daysLeft)/60)*100)}%`,
+                          background:daysLeft<10?"var(--red)":"linear-gradient(90deg,var(--blue),var(--green))"
+                        }}/>
                       </div>
-                      <div style={{marginTop:16,display:"flex",gap:10}}>
-                        <button className="btn danger sm" onClick={handleCancelPlan}>
-                          Ακύρωση Πλάνου
-                        </button>
-                        <button className="btn sm" onClick={() => showToast("Το ιστορικό πληρωμών έρχεται σύντομα")}>
-                          📄 Ιστορικό Πληρωμών
-                        </button>
+                      <div style={{fontSize:12,color:"var(--muted)"}}>
+                        Λήξη: {planExpiry?.toLocaleDateString("el-GR")}
                       </div>
                     </>
                   )}
                 </div>
 
-
-                {(!barbershop?.plan || barbershop.plan === "freemium") && (
-                  <div className="settings-card">
-                    <h3>🚀 Αναβάθμισε το Πλάνο σου</h3>
-                    <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:12}}>
-                      {[
-                        {key:"solo", name:"Solo", price:"€20/μήνα", desc:"1 barber · Απεριόριστες κρατήσεις", icon:"👤"},
-                        {key:"duo", name:"Duo", price:"€24/μήνα", desc:"2 barbers · Απεριόριστες κρατήσεις", icon:"👥", popular:true},
-                        {key:"team", name:"Team", price:"€28/μήνα", desc:"3-10 barbers · Πλήρης διαχείριση", icon:"🏆"},
-                      ].map(p => (
-                        <div key={p.key} style={{
-                          position:"relative", display:"flex", justifyContent:"space-between", alignItems:"center",
-                          padding:"16px", background:"var(--card2)",
-                          border: p.popular ? "1.5px solid rgba(245,158,11,.4)" : "1px solid var(--border)",
-                          borderRadius:14
-                        }}>
-                          {p.popular && (
-                            <span style={{
-                              position:"absolute", top:-9, left:14, background:"var(--gold)", color:"#1a0f00",
-                              fontSize:9.5, fontWeight:800, padding:"3px 9px", borderRadius:999
-                            }}>ΔΗΜΟΦΙΛΕΣ</span>
-                          )}
-                          <div style={{display:"flex",alignItems:"center",gap:12}}>
-                            <div style={{fontSize:22}}>{p.icon}</div>
-                            <div>
-                              <div style={{fontWeight:700,fontSize:14.5}}>{p.name}</div>
-                              <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>{p.desc}</div>
-                            </div>
-                          </div>
-                          <div style={{textAlign:"right"}}>
-                            <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:16,color:"var(--gold)",marginBottom:6}}>{p.price}</div>
-                            <button className="btn primary sm" onClick={() => handleUpgrade(p.key)}>
-                              Αναβάθμιση →
-                            </button>
-                          </div>
+                {barbershop?.plan==="freemium" ? (
+                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    {[
+                      {key:"solo",name:"Solo",price:"€20",desc:"1 barber · Απεριόριστες κρατήσεις"},
+                      {key:"duo",name:"Duo",price:"€24",desc:"2 barbers · Απεριόριστες κρατήσεις"},
+                      {key:"team",name:"Team",price:"€28",desc:"3-10 barbers · Πλήρης διαχείριση"},
+                    ].map(p=>(
+                      <div key={p.key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 16px",background:"var(--card2)",border:"1px solid var(--border)",borderRadius:12}}>
+                        <div>
+                          <div style={{fontWeight:700,fontSize:14}}>{p.name} · {p.price}/μήνα</div>
+                          <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>{p.desc}</div>
                         </div>
-                      ))}
+                        <button className="btn primary sm" onClick={async()=>{
+                          const res = await fetch("/api/create-checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({plan:p.key,barbershopId:barbershop.id})})
+                          const {url} = await res.json()
+                          if (url) window.location.href=url
+                        }}>Αναβάθμιση →</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="plan-card-d">
+                    <div style={{fontSize:13,color:"var(--muted)",marginBottom:16}}>Διαχείριση συνδρομής</div>
+                    <div style={{display:"flex",gap:10}}>
+                      <button className="btn primary" onClick={async()=>{
+                        const res = await fetch("/api/create-checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({plan:barbershop.plan,barbershopId:barbershop.id})})
+                        const {url} = await res.json()
+                        if (url) window.location.href=url
+                      }}>🔄 Ανανέωση Πλάνου</button>
+                      <button className="btn danger" onClick={async()=>{
+                        if (confirm("Είσαι σίγουρος ότι θέλεις να ακυρώσεις το πλάνο;")) {
+                          await supabase.from("barbershops").update({plan:"freemium"}).eq("id",barbershop.id)
+                          setBarbershop({...barbershop,plan:"freemium"})
+                          showToast("Το πλάνο ακυρώθηκε")
+                        }
+                      }}>Ακύρωση Πλάνου</button>
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             )}
-          
-        
-      
 
+            {/* SETTINGS */}
+            {view==="settings" && (<>
+              <div className="settings-card">
+                <h3>👤 Λογαριασμός</h3>
+                <div className="settings-row"><span className="settings-label">Email</span><span className="settings-val">{user?.email}</span></div>
+                <div className="settings-row"><span className="settings-label">Όνομα</span><span className="settings-val">{user?.user_metadata?.full_name||"—"}</span></div>
+                <div className="settings-row"><span className="settings-label">Εγγραφή</span><span className="settings-val">{new Date(user?.created_at).toLocaleDateString("el-GR")}</span></div>
+              </div>
+              {barbershop && (
+                <div className="settings-card">
+                  <h3>💈 Κουρείο</h3>
+                  <div className="settings-row"><span className="settings-label">Όνομα</span><span className="settings-val">{barbershop.name}</span></div>
+                  <div className="settings-row"><span className="settings-label">Πόλη</span><span className="settings-val">{barbershop.city}</span></div>
+                  <div className="settings-row"><span className="settings-label">Πλάνο</span><span className="settings-val">{barbershop.plan}</span></div>
+                  <div className="settings-row">
+                    <span className="settings-label">Link</span>
+                    <button className="btn sm" onClick={()=>{
+                      navigator.clipboard.writeText(`${window.location.origin}/barbershops/${barbershop.id}`)
+                      showToast("Link αντιγράφηκε ✓")
+                    }}>📋 Αντιγραφή</button>
+                  </div>
+                </div>
+              )}
+              <div className="settings-card">
+                <h3>🔐 Ασφάλεια</h3>
+                <div className="settings-row">
+                  <span className="settings-label">Αποσύνδεση</span>
+                  <button className="btn danger sm" onClick={async()=>{await supabase.auth.signOut();window.location.href="/"}}>Αποσύνδεση</button>
+                </div>
+              </div>
+            </>)}
+
+          </div>
+        </div>
+      </div>
+
+      {/* BOTTOM NAV */}
+      <nav className="bottom-nav">
+        {navItems.map(n=>(
+          <button key={n.v} className={`bn-item ${view===n.v?"active":""}`} onClick={()=>setView(n.v)}>
+            <span className="ic">{n.icon}</span>{n.label}
+          </button>
+        ))}
+      </nav>
+
+      {/* DETAIL MODAL */}
+      {modal==="detail" && selectedAppt && (
+        <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setModal(null)}}>
+          <div className="modal">
+            <h3>📋 Στοιχεία Ραντεβού</h3>
+            <div style={{marginTop:16}}>
+              <div className="detail-row"><span className="detail-label">Πελάτης</span><span className="detail-val">{selectedAppt.customer_name}</span></div>
+              {selectedAppt.customer_phone && <div className="detail-row"><span className="detail-label">📱 Τηλέφωνο</span><span className="detail-val"><a href={`tel:${selectedAppt.customer_phone}`} style={{color:"var(--blue)"}}>{selectedAppt.customer_phone}</a></span></div>}
+              {selectedAppt.customer_email && <div className="detail-row"><span className="detail-label">📧 Email</span><span className="detail-val" style={{fontSize:12}}>{selectedAppt.customer_email}</span></div>}
+              <div className="detail-row"><span className="detail-label">✂️ Υπηρεσία</span><span className="detail-val">{selectedAppt.service}</span></div>
+              {selectedAppt.barber_name && <div className="detail-row"><span className="detail-label">👤 Barber</span><span className="detail-val">{selectedAppt.barber_name}</span></div>}
+              <div className="detail-row"><span className="detail-label">📅 Ημερομηνία</span><span className="detail-val">{selectedAppt.date}</span></div>
+              <div className="detail-row"><span className="detail-label">🕒 Ώρα</span><span className="detail-val">{selectedAppt.time}</span></div>
+              <div className="detail-row"><span className="detail-label">Κατάσταση</span>
+                <span className={`badge ${selectedAppt.status||"pending"}`}>
+                  {selectedAppt.status==="cancelled"?"Ακυρώθηκε":selectedAppt.status==="confirmed"?"✅ Επιβεβαιωμένο":"⏳ Εκκρεμές"}
+                </span>
+              </div>
+            </div>
+            <div className="modal-actions" style={{marginTop:16}}>
+              <button className="btn" onClick={()=>setModal(null)}>Κλείσιμο</button>
+              {selectedAppt.status!=="cancelled" && (<>
+                <button className="btn" onClick={()=>{setModal("reschedule")}}>🔄 Αλλαγή</button>
+                <button className="btn danger" onClick={()=>{setModal("cancel")}}>✕ Ακύρωση</button>
+              </>)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CANCEL MODAL */}
+      {modal==="cancel" && selectedAppt && (
+        <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setModal(null)}}>
+          <div className="modal">
+            <h3>❌ Ακύρωση Ραντεβού</h3>
+            <p>Είσαι σίγουρος ότι θέλεις να ακυρώσεις το ραντεβού του <strong>{selectedAppt.customer_name}</strong>;</p>
+            <div className="modal-actions">
+              <button className="btn" onClick={()=>setModal(null)}>Πίσω</button>
+              <button className="btn danger" onClick={()=>handleCancel(selectedAppt.id)}>Ακύρωση</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* RESCHEDULE MODAL */}
       {modal==="reschedule" && selectedAppt && (
         <div className="overlay" onClick={e=>{if(e.target===e.currentTarget){setModal(null);setNewDate("");setNewTime("")}}}>
           <div className="modal">
             <h3>🔄 Αλλαγή Ώρας</h3>
-            <p>Ραντεβού: <strong>{selectedAppt.customer_name}</strong> — {selectedAppt.service}</p>
+            <p>{selectedAppt.customer_name} — {selectedAppt.service}</p>
             <div className="modal-field">
               <label>Νέα Ημερομηνία</label>
               <input type="date" value={newDate} min={today} onChange={e=>{setNewDate(e.target.value);setNewTime("")}}/>
@@ -982,16 +984,39 @@ async function handleCancelPlan() {
           <div className="modal">
             <h3>+ Νέο Ραντεβού</h3>
             <div className="modal-field">
-              <label>Πελάτης</label>
-              <input type="text" value={newClient} onChange={e=>setNewClient(e.target.value)} placeholder="Ονοματεπώνυμο"/>
+              <label>Ονοματεπώνυμο *</label>
+              <input type="text" value={newClient} onChange={e=>setNewClient(e.target.value)} placeholder="π.χ. Γιώργος Παπαδόπουλος"/>
             </div>
             <div className="modal-field">
-              <label>Ημερομηνία</label>
+              <label>Τηλέφωνο</label>
+              <input type="tel" value={newPhone} onChange={e=>setNewPhone(e.target.value)} placeholder="69XXXXXXXX"/>
+            </div>
+            <div className="modal-field">
+              <label>Email</label>
+              <input type="email" value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder="email@example.com"/>
+            </div>
+            <div className="modal-field">
+              <label>Υπηρεσία</label>
+              <select value={newService} onChange={e=>setNewService(e.target.value)}>
+                {editServices.map(s=><option key={s.name} value={s.name}>{s.name}</option>)}
+              </select>
+            </div>
+            {teamMembers.length>0 && (
+              <div className="modal-field">
+                <label>Barber</label>
+                <select value={newBarber} onChange={e=>setNewBarber(e.target.value)}>
+                  <option value="">Οποιονδήποτε</option>
+                  {teamMembers.map(b=><option key={b.name} value={b.name}>{b.name}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="modal-field">
+              <label>Ημερομηνία *</label>
               <input type="date" value={newDate} min={today} onChange={e=>setNewDate(e.target.value)}/>
             </div>
             {newDate && (
               <div className="modal-field">
-                <label>Ώρα</label>
+                <label>Ώρα *</label>
                 <div className="time-grid">
                   {timeSlots().filter((_,i)=>i%2===0).slice(2,20).map(t=>(
                     <div key={t} className={`time-slot ${newTime===t?"sel":""}`} onClick={()=>setNewTime(t)}>{t}</div>
@@ -999,27 +1024,9 @@ async function handleCancelPlan() {
                 </div>
               </div>
             )}
-            <div className="modal-field">
-              <label>Υπηρεσία</label>
-              <select value={newService} onChange={e=>setNewService(e.target.value)}>
-                {(editServices.length>0?editServices.map(s=>s.name):SERVICES).map(s=>(
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
             <div className="modal-actions">
-              <button className="btn" onClick={()=>{setModal(null);setNewClient("");setNewDate("");setNewTime("")}}>Πίσω</button>
-              <button className="btn primary" onClick={async()=>{
-                if(!newClient||!newDate||!newTime){showToast("Συμπλήρωσε όλα!");return}
-                const {data} = await supabase.from("appointments").insert({
-                  customer_name:newClient,customer_email:user.email,
-                  service:newService,date:newDate,time:newTime,
-                  status:"confirmed",barbershop_id:barbershop?.id||null
-                }).select().single()
-                if(data) setAppointments(p=>[...p,data].sort((a,b)=>a.date.localeCompare(b.date)))
-                setModal(null);setNewClient("");setNewDate("");setNewTime("")
-                showToast("Το ραντεβού προστέθηκε ✓")
-              }}>Αποθήκευση</button>
+              <button className="btn" onClick={()=>{setModal(null);setNewClient("");setNewPhone("");setNewEmail("");setNewDate("");setNewTime("")}}>Πίσω</button>
+              <button className="btn primary" onClick={handleNewAppt}>Αποθήκευση</button>
             </div>
           </div>
         </div>
@@ -1046,20 +1053,11 @@ async function handleCancelPlan() {
             )}
             <div className="modal-field">
               <label>Αιτία (προαιρετικό)</label>
-              <input type="text" value={blockReason} onChange={e=>setBlockReason(e.target.value)} placeholder="π.χ. Διάλειμμα"/>
+              <input type="text" value={blockReason} onChange={e=>setBlockReason(e.target.value)} placeholder="π.χ. Διάλειμμα, Άδεια"/>
             </div>
             <div className="modal-actions">
               <button className="btn" onClick={()=>{setModal(null);setNewDate("");setNewTime("");setBlockReason("")}}>Πίσω</button>
-              <button className="btn primary" onClick={async()=>{
-                if(!newDate||!newTime){showToast("Επέλεξε ημερομηνία και ώρα!");return}
-                await supabase.from("appointments").insert({
-                  customer_name:"🚫 Αποκλεισμένο",customer_email:user.email,
-                  service:blockReason||"Μη διαθέσιμο",date:newDate,time:newTime,
-                  status:"cancelled",barbershop_id:barbershop?.id||null
-                })
-                setModal(null);setNewDate("");setNewTime("");setBlockReason("")
-                showToast("Η ώρα αποκλείστηκε ✓")
-              }}>Αποκλεισμός</button>
+              <button className="btn primary" onClick={handleBlock}>🚫 Αποκλεισμός</button>
             </div>
           </div>
         </div>
@@ -1070,27 +1068,26 @@ async function handleCancelPlan() {
   )
 }
 
-function ApptCard({ appt, onCancel, onReschedule }: any) {
+function ApptCard({appt,onClick,onCancel,onReschedule}:any) {
   const date = new Date(appt.date)
   const day = date.getDate()
-  const month = date.toLocaleDateString("el-GR", { month: "short" })
+  const month = date.toLocaleDateString("el-GR",{month:"short"})
   return (
-    <div className={`appt-card ${appt.status==="cancelled"?"cancelled":""}`}>
+    <div className={`appt-card ${appt.status==="cancelled"?"cancelled":""}`} onClick={onClick}>
       <div className="appt-time-box">
         <div className="appt-time">{appt.time}</div>
         <div className="appt-date">{day} {month}</div>
       </div>
       <div className="appt-info">
         <div className="appt-name">{appt.customer_name}</div>
-        <div className="appt-svc">{appt.service}</div>
-        {appt.customer_email && <div className="appt-contact">{appt.customer_email}</div>}
+        <div className="appt-svc">{appt.service}{appt.barber_name?` · ${appt.barber_name}`:""}</div>
         {appt.customer_phone && <div className="appt-contact">📱 {appt.customer_phone}</div>}
       </div>
       <span className={`badge ${appt.status||"pending"}`}>
         {appt.status==="cancelled"?"Ακυρώθηκε":appt.status==="confirmed"?"✅ Επιβ.":"⏳ Εκκρ."}
       </span>
-      {appt.status !== "cancelled" && (
-        <div className="appt-btns">
+      {appt.status!=="cancelled" && (
+        <div className="appt-btns" onClick={e=>e.stopPropagation()}>
           <button className="appt-btn" onClick={onReschedule}>🔄</button>
           <button className="appt-btn danger" onClick={onCancel}>✕</button>
         </div>

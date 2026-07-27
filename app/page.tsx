@@ -571,7 +571,10 @@ export default function Home() {
 
       {/* NAV */}
       <nav className="nav">
-        <div className="nav-logo" onClick={() => window.location.href="/"}>BarberBook</div>
+        <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={() => window.location.href="/"}>
+  <img src="/logo.png" alt="BarberBook" style={{height:36}}/>
+  <span className="nav-logo">BarberBook</span>
+</div>
         <div className="nav-center" style={{display:"flex",gap:"1.5rem",alignItems:"center"}}>
   <a onClick={() => window.location.href="/businesses"}
     style={{fontSize:"0.85rem",color:"var(--light)",opacity:0.7,cursor:"pointer",fontWeight:500,transition:"opacity 0.2s"}}

@@ -121,6 +121,9 @@ export default function Home() {
   const spotlightRef = useRef<HTMLDivElement>(null)
   const visualRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
+const ctaStatRef = useRef<HTMLDivElement>(null)
+  const [ctaCounts, setCtaCounts] = useState({ shops: 0, bookings: 0, rating: 0 })
+  const [ctaAnimated, setCtaAnimated] = useState(false)
 
   const now = new Date()
   const featuredShops = barbershops.filter(b => {
@@ -134,7 +137,7 @@ export default function Home() {
     return diffDays < 14
   })
 
-  useEffect(() => {
+useEffect(() => {
     supabase.from("barbershops").select("*")
      .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -157,14 +160,15 @@ export default function Home() {
           setShopPhotos(photos)
         }
       })
-
+ 
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
     })
     return () => listener.subscription.unsubscribe()
   }, [])
-
+ 
+ 
   // Search
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -181,7 +185,7 @@ export default function Home() {
     setSearchResults(results)
     setShowSearchResults(true)
   }, [searchQuery, barbershops])
-
+ 
   // Particle canvas
   useEffect(() => {
     const canvas = canvasRef.current
@@ -219,6 +223,34 @@ export default function Home() {
     draw()
     return () => cancelAnimationFrame(raf)
   }, [])
+ 
+  // CTA stats counter
+  useEffect(() => {
+    const el = ctaStatRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && !ctaAnimated) {
+          setCtaAnimated(true)
+          const targets = { shops: 50, bookings: 500, rating: 4.9 }
+          let step = 0
+          const iv = setInterval(() => {
+            step++
+            setCtaCounts({
+              shops: Math.min(targets.shops, Math.round((targets.shops / 40) * step)),
+              bookings: Math.min(targets.bookings, Math.round((targets.bookings / 40) * step)),
+              rating: Math.min(targets.rating, +(((targets.rating / 40) * step).toFixed(1))),
+            })
+            if (step >= 40) clearInterval(iv)
+          }, 25)
+        }
+      })
+    }, { threshold: 0.4 })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [ctaAnimated])
+ 
+  
 
   const handleLogin = async (email: string, password: string) => {
     setAuthLoading(true); setAuthError("")
@@ -742,13 +774,45 @@ export default function Home() {
         .modal-close{position:absolute;top:1.2rem;right:1.2rem;background:none;
           border:none;color:var(--light);opacity:0.5;font-size:1.4rem;cursor:pointer;}
 
-        /* FOOTER */
-        .footer{background:rgba(5,13,26,0.8);border-top:1px solid var(--line);
-          padding:3rem 2rem 2rem;text-align:center;}
-        .footer-logo{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:0.08em;
+          /* FOOTER */
+        .footer2{background:rgba(5,13,26,0.9);border-top:1px solid var(--line);padding:4rem 2rem 0;}
+        .footer2-inner{max-width:1180px;margin:0 auto;}
+        .footer2-top{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:2.5rem;
+          padding-bottom:3rem;border-bottom:1px solid var(--line);}
+        .footer2-logo{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;letter-spacing:0.08em;
           background:linear-gradient(120deg,var(--glow),var(--gold));
-          -webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:0.5rem;}
-        .footer-sub{font-size:0.8rem;color:var(--light);opacity:0.35;}
+          -webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:0.8rem;
+          display:inline-block;}
+        .footer2-tagline{font-size:0.85rem;color:var(--light);opacity:0.55;
+          line-height:1.7;max-width:280px;margin-bottom:1.4rem;}
+        .footer2-social{display:flex;gap:0.6rem;}
+        .social-icon{width:38px;height:38px;border-radius:0.7rem;
+          background:rgba(30,95,255,0.08);border:1px solid var(--line);
+          display:flex;align-items:center;justify-content:center;font-size:16px;
+          cursor:pointer;transition:all 0.2s;text-decoration:none;}
+        .social-icon:hover{background:rgba(30,95,255,0.18);border-color:var(--glow);transform:translateY(-2px);}
+        .footer2-col-title{font-size:0.72rem;font-weight:700;letter-spacing:0.1em;
+          text-transform:uppercase;color:var(--white);opacity:0.9;margin-bottom:1.1rem;}
+        .footer2-links{list-style:none;display:flex;flex-direction:column;gap:0.7rem;}
+        .footer2-links a{font-size:0.86rem;color:var(--light);opacity:0.6;
+          text-decoration:none;cursor:pointer;transition:opacity 0.2s,color 0.2s;}
+        .footer2-links a:hover{opacity:1;color:var(--glow);}
+        .footer2-email{display:inline-flex;align-items:center;gap:0.4rem;}
+        .footer2-bottom{display:flex;align-items:center;justify-content:space-between;
+          flex-wrap:wrap;gap:1rem;padding:1.6rem 0 2rem;}
+        .footer2-copy{font-size:0.78rem;color:var(--light);opacity:0.4;}
+        .footer2-legal{display:flex;gap:1.4rem;}
+        .footer2-legal a{font-size:0.78rem;color:var(--light);opacity:0.4;
+          text-decoration:none;cursor:pointer;transition:opacity 0.2s;}
+        .footer2-legal a:hover{opacity:0.8;}
+        @media(max-width:820px){
+          .footer2-top{grid-template-columns:1fr 1fr;gap:2rem;}
+        }
+        @media(max-width:520px){
+          .footer2-top{grid-template-columns:1fr;}
+          .footer2-bottom{flex-direction:column;align-items:flex-start;}
+        }
+        
 
         /* EMPTY STATE */
         .empty-cards{text-align:center;padding:3rem;color:var(--light);opacity:0.4;font-size:0.9rem;}
@@ -768,6 +832,77 @@ export default function Home() {
         @media(max-width:480px){
           .biz-plans{grid-template-columns:1fr;}
           .stats-bar{gap:1.5rem;}
+        }
+      
+        /* CTA UPGRADE */
+        .cta2{position:relative;padding:6.5rem 2rem;overflow:hidden;
+          background:radial-gradient(ellipse 90% 60% at 50% 0%,rgba(30,95,255,0.14),transparent 60%),
+            radial-gradient(ellipse 70% 50% at 100% 100%,rgba(201,168,76,0.1),transparent 60%),
+            var(--navy);
+          border-top:1px solid var(--line);perspective:1400px;text-align:center;}
+        .cta2-inner{position:relative;z-index:2;max-width:900px;margin:0 auto;}
+        .cta2-badge{display:inline-flex;align-items:center;gap:0.55rem;
+          background:rgba(30,95,255,0.1);border:1px solid rgba(30,95,255,0.28);
+          border-radius:2rem;padding:0.42rem 1.1rem;font-size:0.72rem;font-weight:700;
+          color:var(--light);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:1.6rem;}
+        .cta2-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.5rem,6.5vw,4.6rem);
+          letter-spacing:0.03em;line-height:0.98;margin-bottom:1.2rem;}
+        .cta2-accent{background:linear-gradient(120deg,var(--glow) 20%,var(--gold2) 45%,var(--white) 55%,var(--gold2) 65%,var(--glow) 80%);
+          background-size:250% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+          animation:cta2-shine 5s linear infinite;}
+        @keyframes cta2-shine{0%{background-position:200% 0;}100%{background-position:-50% 0;}}
+        .cta2-sub{font-size:1.02rem;color:var(--light);opacity:0.6;line-height:1.75;
+          max-width:560px;margin:0 auto 2.4rem;}
+        .cta2-features{display:flex;justify-content:center;gap:0.8rem;flex-wrap:wrap;margin-bottom:3rem;}
+        .feature-pill{display:flex;align-items:center;gap:0.5rem;background:var(--card);
+          border:1px solid var(--line);border-radius:1rem;padding:0.75rem 1.1rem;
+          font-size:0.82rem;font-weight:600;color:var(--light);transform-style:preserve-3d;
+          transition:transform 0.15s ease-out,border-color 0.25s,box-shadow 0.25s;}
+        .feature-pill:hover{border-color:rgba(30,95,255,0.4);
+          box-shadow:0 16px 32px -12px rgba(30,95,255,0.35);}
+        .cta2-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem;
+          max-width:640px;margin:0 auto 3rem;perspective:1000px;}
+        .stat-card2{background:linear-gradient(165deg,rgba(16,32,60,0.9),rgba(6,14,28,0.95));
+          border:1px solid var(--line);border-radius:1.2rem;padding:1.6rem 1rem;
+          transform-style:preserve-3d;transition:border-color 0.2s,box-shadow 0.2s;}
+        .stat-card2:hover{border-color:rgba(201,168,76,0.35);
+          box-shadow:0 24px 48px -16px rgba(0,0,0,0.5);}
+        .stat-num2{font-family:'Bebas Neue',sans-serif;font-size:2.6rem;letter-spacing:0.04em;
+          background:linear-gradient(120deg,var(--glow),var(--gold));
+          -webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+        .stat-label2{font-size:0.7rem;color:var(--light);opacity:0.55;
+          text-transform:uppercase;letter-spacing:0.08em;margin-top:0.3rem;}
+        .cta2-testimonial{position:relative;max-width:460px;margin:0 auto 3rem;text-align:left;
+          background:var(--card);border:1px solid var(--line);border-radius:1.3rem;
+          padding:1.4rem 1.6rem;box-shadow:0 30px 60px -20px rgba(0,0,0,0.5);
+          transform-style:preserve-3d;animation:tfloat2 5s ease-in-out infinite;}
+        @keyframes tfloat2{0%,100%{transform:rotateX(2deg) translateY(0);}50%{transform:rotateX(2deg) translateY(-8px);}}
+        .t2-top{display:flex;align-items:center;gap:0.8rem;margin-bottom:0.7rem;}
+        .t2-avatar{width:38px;height:38px;border-radius:50%;
+          background:linear-gradient(135deg,var(--accent),var(--gold));
+          display:flex;align-items:center;justify-content:center;font-size:16px;
+          border:2px solid rgba(201,168,76,0.5);}
+        .t2-name{font-size:0.86rem;font-weight:700;}
+        .t2-role{font-size:0.7rem;color:var(--light);opacity:0.5;}
+        .t2-stars{margin-left:auto;color:var(--gold2);font-size:0.8rem;}
+        .t2-quote{font-size:0.86rem;color:var(--light);opacity:0.85;line-height:1.6;}
+        .cta2-btns{display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;}
+        .btn-primary-3d,.btn-ghost-3d{position:relative;border-radius:0.9rem;font-size:0.95rem;
+          font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transform-style:preserve-3d;
+          transition:box-shadow 0.2s ease;will-change:transform;}
+        .btn-primary-3d{background:linear-gradient(135deg,#1e5fff,#0a3ab8);border:none;color:#fff;
+          padding:1rem 2.1rem;box-shadow:0 10px 30px rgba(30,95,255,0.35);}
+        .btn-primary-3d:hover{box-shadow:0 16px 40px rgba(30,95,255,0.5);}
+        .btn-ghost-3d{background:rgba(255,255,255,0.03);border:1px solid rgba(168,200,255,0.22);
+          color:var(--light);padding:1rem 2.1rem;}
+        .btn-ghost-3d:hover{border-color:var(--glow);color:#fff;background:rgba(30,95,255,0.08);}
+        .cta2-note{margin-top:1.2rem;font-size:0.76rem;color:var(--light);opacity:0.4;}
+        @media(max-width:700px){
+          .cta2-stats{gap:0.6rem;}
+          .stat-card2{padding:1.1rem 0.5rem;}
+          .stat-num2{font-size:1.9rem;}
+          .cta2-features{gap:0.5rem;}
+          .feature-pill{padding:0.6rem 0.85rem;font-size:0.74rem;}
         }
       `}</style>
 
@@ -907,9 +1042,6 @@ export default function Home() {
             <div className="hero-cta-row">
               <button className="btn-near" onClick={handleNearMe} onMouseMove={handleMagnetMove} onMouseLeave={handleMagnetLeave}>
                 {nearLoading ? "⏳ Εντοπισμός..." : "📍 Κοντά μου"}
-              </button>
-              <button className="btn-biz" onClick={() => window.location.href="/onboarding"} onMouseMove={handleMagnetMove} onMouseLeave={handleMagnetLeave}>
-                💈 Είσαι Barber; Ξεκίνα Δωρεάν
               </button>
             </div>
  
@@ -1065,88 +1197,115 @@ export default function Home() {
       </section>
 
      {/* CTA SECTION */}
-<section style={{
-  padding:"5rem 2rem",
-  background:"radial-gradient(ellipse 80% 60% at 50% 50%,rgba(30,95,255,0.12),transparent 70%)",
-  borderTop:"1px solid var(--line)",
-  textAlign:"center"
-}}>
-  <div style={{maxWidth:700,margin:"0 auto"}}>
-    <div style={{
-      display:"inline-flex",alignItems:"center",gap:"0.5rem",
-      background:"rgba(30,95,255,0.1)",border:"1px solid rgba(30,95,255,0.25)",
-      borderRadius:"2rem",padding:"0.4rem 1rem",fontSize:"0.72rem",fontWeight:700,
-      color:"var(--light)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"1.5rem"
-    }}>✂️ Η Πλατφόρμα Αρ.1 για Barbers</div>
-
-    <h2 style={{
-      fontFamily:"'Bebas Neue',sans-serif",
-      fontSize:"clamp(2.5rem,7vw,5rem)",
-      letterSpacing:"0.03em",lineHeight:0.95,marginBottom:"1rem"
-    }}>
-      Βρες τον<br/>
-      <span style={{
-        background:"linear-gradient(120deg,var(--glow),var(--gold2))",
-        WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"
-      }}>Καλύτερο Barber</span><br/>
-      Κοντά σου
-    </h2>
-
-    <p style={{
-      fontSize:"1rem",color:"var(--light)",opacity:0.6,
-      lineHeight:1.8,maxWidth:480,margin:"0 auto 2rem"
-    }}>
-      Κλείσε ραντεβού online σε δευτερόλεπτα. Χωρίς κλήσεις, χωρίς αναμονή.
-    </p>
-
-    <div style={{display:"flex",justifyContent:"center",gap:"3rem",flexWrap:"wrap",marginBottom:"2.5rem"}}>
-      {[
-        { num:"50+", label:"Κουρεία" },
-        { num:"500+", label:"Ραντεβού" },
-        { num:"4.9★", label:"Βαθμολογία" },
-      ].map(s => (
-        <div key={s.label} style={{textAlign:"center"}}>
-          <div style={{
-            fontFamily:"'Bebas Neue',sans-serif",fontSize:"2.2rem",
-            background:"linear-gradient(120deg,var(--glow),var(--gold))",
-            WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"
-          }}>{s.num}</div>
-          <div style={{fontSize:"0.72rem",color:"var(--light)",opacity:0.5,
-            textTransform:"uppercase",letterSpacing:"0.08em",marginTop:"0.2rem"}}>{s.label}</div>
+      <section className="cta2">
+        <div className="grid-floor"/>
+        <div className="cta2-inner">
+          <div className="cta2-badge">✂️ Η πλατφόρμα αρ.1 για Barbers</div>
+ 
+          <h2 className="cta2-title">
+            Ανέβασε το κουρείο σου<br/>
+            στο <span className="cta2-accent">επόμενο επίπεδο</span>
+          </h2>
+ 
+          <p className="cta2-sub">Χιλιάδες πελάτες ψάχνουν barber online κάθε μέρα. Γίνε ορατός, γέμισε το πρόγραμμά σου, και σταμάτα να χάνεις ραντεβού σε τηλεφωνήματα.</p>
+ 
+          <div className="cta2-features">
+            <div className="feature-pill">⚡ Δωρεάν εγγραφή</div>
+            <div className="feature-pill">📅 Διαχείριση ραντεβού 24/7</div>
+            <div className="feature-pill">💳 Καμία προμήθεια στην αρχή</div>
+            <div className="feature-pill">📈 Πάνω από 500 κρατήσεις/μήνα</div>
+          </div>
+ 
+          <div className="cta2-stats" ref={ctaStatRef}>
+            <div className="stat-card2">
+              <div className="stat-num2">{ctaCounts.shops}+</div>
+              <div className="stat-label2">Κουρεία</div>
+            </div>
+            <div className="stat-card2">
+              <div className="stat-num2">{ctaCounts.bookings}+</div>
+              <div className="stat-label2">Ραντεβού</div>
+            </div>
+            <div className="stat-card2">
+              <div className="stat-num2">{ctaCounts.rating.toFixed(1)}★</div>
+              <div className="stat-label2">Βαθμολογία</div>
+            </div>
+          </div>
+ 
+          <div className="cta2-testimonial">
+            <div className="t2-top">
+              <div className="t2-avatar">Γ</div>
+              <div>
+                <div className="t2-name">Γιώργος Παπαδόπουλος</div>
+                <div className="t2-role">Ιδιοκτήτης, Fade Club Αθήνα</div>
+              </div>
+              <div className="t2-stars">★★★★★</div>
+            </div>
+            <div className="t2-quote">"Μέσα σε 2 μήνες γέμισα το βιβλίο ραντεβού μου. Δεν χρειάστηκε ούτε ένα τηλεφώνημα."</div>
+          </div>
+ 
+          <div className="cta2-btns">
+            <button className="btn-primary-3d" onClick={() => window.location.href="/businesses"} onMouseMove={handleMagnetMove} onMouseLeave={handleMagnetLeave}>
+  💈 Ξεκίνα δωρεάν σήμερα
+</button>
+            <button className="btn-ghost-3d" onClick={() => window.scrollTo({top:0,behavior:"smooth"})} onMouseMove={handleMagnetMove} onMouseLeave={handleMagnetLeave}>
+              Δες πώς δουλεύει →
+            </button>
+          </div>
+          <div className="cta2-note">Χωρίς πιστωτική κάρτα · Ενεργοποίηση σε 5 λεπτά</div>
         </div>
-      ))}
-    </div>
-
-    <div style={{display:"flex",justifyContent:"center",gap:"1rem",flexWrap:"wrap"}}>
-      <button onClick={() => window.scrollTo({top:0,behavior:"smooth"})}
-        style={{
-          padding:"0.9rem 2rem",borderRadius:"0.8rem",border:"none",
-          background:"linear-gradient(135deg,#1e5fff,#0a3ab8)",color:"#fff",
-          fontSize:"0.95rem",fontWeight:700,cursor:"pointer",
-          fontFamily:"'Inter',sans-serif",boxShadow:"0 8px 24px rgba(30,95,255,0.3)"
-        }}>
-        ✂️ Βρες Barber
-      </button>
-      <button onClick={() => window.location.href="/businesses"}
-        style={{
-          padding:"0.9rem 2rem",borderRadius:"0.8rem",
-          background:"none",border:"1px solid rgba(168,200,255,0.2)",
-          color:"var(--light)",fontSize:"0.95rem",fontWeight:700,
-          cursor:"pointer",fontFamily:"'Inter',sans-serif"
-        }}>
-        Για Επιχειρήσεις →
-      </button>
-    </div>
-  </div>
-</section>
+      </section>
+ 
 
       {/* FOOTER */}
-      <footer className="footer">
-        <div className="footer-logo">BarberBook</div>
-        <div className="footer-sub">© 2026 BarberBook · Made with ❤️ in Greece 🇬🇷</div>
+      <footer className="footer2">
+        <div className="footer2-inner">
+          <div className="footer2-top">
+            <div>
+              <div className="footer2-logo">BarberBook</div>
+              <p className="footer2-tagline">Η πλατφόρμα Νο.1 για online κρατήσεις σε κουρεία στην Ελλάδα. Χωρίς τηλεφωνήματα, χωρίς αναμονή.</p>
+              <div className="footer2-social">
+                <a className="social-icon" href="https://instagram.com/barberbook12" target="_blank" rel="noopener noreferrer">📷</a>
+                <a className="social-icon" href="https://tiktok.com/@barberbook12" target="_blank" rel="noopener noreferrer">🎵</a>
+                <a className="social-icon" href="mailto:barberbook12@gmail.com">✉️</a>
+              </div>
+            </div>
+ 
+            <div>
+              <div className="footer2-col-title">Για Πελάτες</div>
+              <ul className="footer2-links">
+                <li><a onClick={() => window.scrollTo({top:0,behavior:"smooth"})}>Βρες Barber</a></li>
+                <li><a onClick={handleNearMe}>Κοντά μου</a></li>
+                <li><a onClick={() => document.getElementById("featured-scroll")?.scrollIntoView({behavior:"smooth"})}>Featured Barbers</a></li>
+              </ul>
+            </div>
+ 
+            <div>
+              <div className="footer2-col-title">Για Επιχειρήσεις</div>
+              <ul className="footer2-links">
+                <li><a onClick={() => window.location.href="/businesses"}>Ξεκίνα δωρεάν</a></li>
+                <li><a onClick={() => setModal("login")}>Σύνδεση</a></li>
+                <li><a onClick={() => window.location.href="/businesses"}>Πλάνα & Τιμές</a></li>
+              </ul>
+            </div>
+ 
+            <div>
+              <div className="footer2-col-title">Βοήθεια</div>
+              <ul className="footer2-links">
+                <li>
+                  <a className="footer2-email" href="mailto:barberbook12@gmail.com">
+                    ✉️ barberbook12@gmail.com
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+ 
+          <div className="footer2-bottom">
+            <div className="footer2-copy">© 2026 BarberBook · Made with ❤️ in Greece 🇬🇷</div>
+          </div>
+        </div>
       </footer>
-
-      {/* MODAL */}
+        {/* MODAL */}
       {modal && (
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) { setModal(""); setAuthError("") } }}>
           <div className="modal-box">
@@ -1164,3 +1323,4 @@ export default function Home() {
     </>
   )
 }
+ 

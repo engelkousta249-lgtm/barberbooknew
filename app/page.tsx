@@ -909,7 +909,7 @@ useEffect(() => {
       {/* NAV */}
       <nav className="nav">
         <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={() => window.location.href="/"}>
-  <img src="/logo.png" alt="BarberBook" style={{height:36}}/>
+  <img src="/logo.png" alt="BarberBook" style={{height:48}}/>
   <span className="nav-logo">BarberBook</span>
 </div>
         <div className="nav-center" style={{display:"flex",gap:"1.5rem",alignItems:"center"}}>

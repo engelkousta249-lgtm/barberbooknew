@@ -1011,9 +1011,9 @@ const [calSelectedDay, setCalSelectedDay] = useState<string|null>(null)
                       )}
                     </div>
                   </div>
-                  {daysLeft !== null && (
-                    <>
-                      <div className="plan-expiry-bar">
+                  {daysLeft !== null && barbershop?.plan !== "freemium" && (
+                  <>
+                  <div className="plan-expiry-bar">
                         <div className="plan-expiry-fill" style={{
                           width:`${Math.min(100,((60-daysLeft)/60)*100)}%`,
                           background:daysLeft<10?"var(--red)":"linear-gradient(90deg,var(--blue),var(--green))"

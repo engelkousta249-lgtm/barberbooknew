@@ -79,6 +79,7 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
   const [submitting, setSubmitting] = useState(false)
   const [takenSlots, setTakenSlots] = useState<string[]>([])
   const [toast, setToast] = useState("")
+  const [viewMonth, setViewMonth] = useState(() => nextDays(7)[0].date)
   const wizardRef = useRef<HTMLDivElement>(null)
 
   const days = nextDays(7)
@@ -244,6 +245,14 @@ await fetch("/api/send-email", {
   const cats = ["Όλες", ...Array.from(new Set(services.map(s => s.cat)))]
   const filteredSvcs = services.filter(s => svcFilter === "Όλες" || s.cat === svcFilter)
 
+  // Calendar month bounds (based on available booking window)
+  const firstAvailDate = days[0].date
+  const lastAvailDate = days[days.length-1].date
+  const canPrevMonth = viewMonth.getFullYear() > firstAvailDate.getFullYear() ||
+    (viewMonth.getFullYear() === firstAvailDate.getFullYear() && viewMonth.getMonth() > firstAvailDate.getMonth())
+  const canNextMonth = viewMonth.getFullYear() < lastAvailDate.getFullYear() ||
+    (viewMonth.getFullYear() === lastAvailDate.getFullYear() && viewMonth.getMonth() < lastAvailDate.getMonth())
+
   if (loading) return (
     <div style={{background:"#070c16",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter,sans-serif",color:"#8a97ac"}}>
       ⏳ Φορτώνει...
@@ -374,17 +383,31 @@ await fetch("/api/send-email", {
         .svc-dur{font-size:12px;color:var(--muted);margin-top:3px;}
         .svc-price{font-size:15px;font-weight:800;color:var(--gold);font-family:'Outfit',sans-serif;background:linear-gradient(120deg,var(--gold),var(--gold2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
 
-        /* DAY PILLS + SLOTS */
-        .day-pills{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:18px;scrollbar-width:none;}
-        .day-pills::-webkit-scrollbar{display:none;}
-        .day-pill{flex-shrink:0;min-width:58px;padding:10px 6px;border-radius:12px;border:1.5px solid var(--line);background:var(--navy-700);text-align:center;cursor:pointer;transition:transform .18s ease-out,background .2s,border-color .2s,box-shadow .2s;}
-        .day-pill:hover{transform:translateY(-3px);border-color:rgba(59,123,255,.35);}
-        .day-pill .dn{font-size:10.5px;color:var(--muted);font-weight:600;text-transform:uppercase;}
-        .day-pill .dd{font-size:15px;font-weight:800;margin-top:2px;}
-        .day-pill.selected{border-color:var(--blue);background:linear-gradient(160deg,var(--blue),#2a5fd9);box-shadow:0 10px 24px -8px rgba(59,123,255,.6);transform:translateY(-3px) scale(1.04);}
-        .day-pill.selected .dn,.day-pill.selected .dd{color:#fff;}
-        .day-pill.closed{opacity:.35;cursor:not-allowed;}
-        .day-pill.closed:hover{transform:none;border-color:var(--line);}
+        /* CALENDAR (date picker replacing day-pills) */
+        .cal-wrap{margin-bottom:18px;}
+        .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+        .cal-month{font-size:13.5px;font-weight:700;font-family:'Outfit',sans-serif;text-transform:capitalize;}
+        .cal-nav-btn{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--navy-700);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .18s ease-out;font-size:13px;}
+        .cal-nav-btn:hover:not(:disabled){border-color:var(--blue);color:var(--blue);transform:translateY(-2px);}
+        .cal-nav-btn:disabled{opacity:.2;cursor:not-allowed;}
+        .cal-dow-row{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px;}
+        .cal-dow{text-align:center;font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:4px 0;}
+        .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;perspective:900px;}
+        .cal-day{aspect-ratio:1;border-radius:10px;border:1.5px solid var(--line);background:var(--navy-700);
+          display:flex;align-items:center;justify-content:center;position:relative;transform-style:preserve-3d;
+          transition:transform .16s ease-out,border-color .2s,box-shadow .2s,background .2s,opacity .2s;}
+        .cal-day-num{font-size:12.5px;font-weight:700;color:var(--muted);transition:color .2s;}
+        .cal-day.disabled{opacity:.18;}
+        .cal-day.avail{cursor:pointer;border-color:rgba(59,123,255,.25);background:rgba(59,123,255,.06);}
+        .cal-day.avail .cal-day-num{color:var(--text);}
+        .cal-day.avail:hover{transform:translateY(-3px) rotateX(10deg) scale(1.05);box-shadow:0 14px 26px -12px rgba(59,123,255,.45);border-color:var(--blue);}
+        .cal-day.closed{cursor:not-allowed;opacity:.35;}
+        .cal-day.closed .cal-day-num{text-decoration:line-through;}
+        .cal-day.today:not(.selected){border-color:var(--blue);box-shadow:0 0 0 1px rgba(59,123,255,.35) inset;}
+        .cal-day.selected{border-color:var(--blue);background:linear-gradient(160deg,var(--blue),#2a5fd9);
+          box-shadow:0 10px 24px -8px rgba(59,123,255,.6);transform:translateY(-2px) scale(1.06);}
+        .cal-day.selected .cal-day-num{color:#fff;font-weight:800;}
+
         .slot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
         .slot{padding:11px 4px;text-align:center;border-radius:10px;border:1.5px solid var(--line);background:var(--navy-700);font-size:12.5px;font-weight:700;cursor:pointer;transition:transform .15s ease-out,border-color .15s,background .15s,box-shadow .15s;}
         .slot:hover{border-color:rgba(59,123,255,.4);transform:translateY(-2px);}
@@ -622,22 +645,66 @@ await fetch("/api/send-email", {
                 <>
                   <h2>Ημέρα & Ώρα</h2>
                   <p className="hint">Διαλέξε πότε θέλεις να έρθεις</p>
-                  <div className="day-pills">
-                    {days.map((d,i) => {
-                      const h = hours[d.hIdx]
-                      return (
-                        <div key={i}
-                          className={`day-pill ${dayIndex===i?"selected":""} ${!h?.active?"closed":""}`}
-                          onClick={() => {
-                            if (!h?.active) { showToast("Κλειστό αυτή την ημέρα"); return }
-                            setDayIndex(i); setTime(null)
-                          }}>
-                          <div className="dn">{DOW_SHORT[d.hIdx]}</div>
-                          <div className="dd">{fmtDate(d.date)}</div>
-                        </div>
-                      )
-                    })}
+
+                  <div className="cal-wrap">
+                    <div className="cal-head">
+                      <button className="cal-nav-btn" disabled={!canPrevMonth}
+                        onClick={() => {
+                          const d = new Date(viewMonth)
+                          d.setMonth(d.getMonth()-1)
+                          setViewMonth(d)
+                        }}>←</button>
+                      <span className="cal-month">
+                        {viewMonth.toLocaleDateString("el-GR",{month:"long",year:"numeric"})}
+                      </span>
+                      <button className="cal-nav-btn" disabled={!canNextMonth}
+                        onClick={() => {
+                          const d = new Date(viewMonth)
+                          d.setMonth(d.getMonth()+1)
+                          setViewMonth(d)
+                        }}>→</button>
+                    </div>
+
+                    <div className="cal-dow-row">
+                      {DOW_SHORT.map(d => <div key={d} className="cal-dow">{d}</div>)}
+                    </div>
+
+                    <div className="cal-grid">
+                      {(() => {
+                        const year = viewMonth.getFullYear()
+                        const month = viewMonth.getMonth()
+                        const firstDay = new Date(year, month, 1)
+                        const lastDay = new Date(year, month+1, 0)
+                        let startDow = firstDay.getDay()-1
+                        if (startDow < 0) startDow = 6
+                        const todayIso = fmtDateISO(new Date())
+                        const cells = []
+                        for (let i=0; i<startDow; i++) cells.push(<div key={`e${i}`}/>)
+                        for (let d=1; d<=lastDay.getDate(); d++) {
+                          const iso = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`
+                          const availIdx = days.findIndex(dd => fmtDateISO(dd.date) === iso)
+                          const avail = availIdx !== -1
+                          const dayObj = avail ? days[availIdx] : null
+                          const isClosed = avail && !hours[dayObj!.hIdx]?.active
+                          const isSelected = avail && dayIndex === availIdx
+                          const isToday = iso === todayIso
+                          cells.push(
+                            <div key={d}
+                              className={`cal-day ${avail?"avail":"disabled"} ${isClosed?"closed":""} ${isSelected?"selected":""} ${isToday?"today":""}`}
+                              onClick={() => {
+                                if (!avail) return
+                                if (isClosed) { showToast("Κλειστό αυτή την ημέρα"); return }
+                                setDayIndex(availIdx); setTime(null)
+                              }}>
+                              <span className="cal-day-num">{d}</span>
+                            </div>
+                          )
+                        }
+                        return cells
+                      })()}
+                    </div>
                   </div>
+
                   {dayIndex===null ? (
                     <p className="hint">Επίλεξε πρώτα ημέρα</p>
                   ) : !hours[days[dayIndex].hIdx]?.active ? (

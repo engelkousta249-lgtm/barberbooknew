@@ -11,7 +11,7 @@ export default function OnboardingLanding() {
       price: "€0",
       period: "/μήνα",
       desc: "Ξεκίνα δωρεάν",
-      features: ["1 Barber", "20 κρατήσεις/μήνα", "Προφίλ καταστήματος", "Email ειδοποιήσεις"],
+      features: ["1 Barber", "150 κρατήσεις/μήνα", "Προφίλ καταστήματος", "Email ειδοποιήσεις"],
       color: "#3b82f6",
       popular: false,
       emoji: "🆓",

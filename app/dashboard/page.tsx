@@ -907,6 +907,92 @@ const [calSelectedDay, setCalSelectedDay] = useState<string|null>(null)
             {/* PLAN */}
             {view==="plan" && (
               <div style={{maxWidth:520}}>
+             {/* BOOKING METER — μόνο για freemium */}
+    {(barbershop?.plan==="freemium" || !barbershop?.plan) && (
+      <div className="plan-card-d" style={{marginBottom:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <h3 style={{fontFamily:"Outfit,sans-serif",fontSize:15,margin:0}}>📊 Κρατήσεις Μήνα</h3>
+          <span style={{
+            fontSize:12,fontWeight:700,
+            color: appointments.filter(a => {
+              const d = new Date(a.created_at || a.date)
+              const now = new Date()
+              return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear() && a.status!=="cancelled"
+            }).length >= 150 ? "var(--red)" : "var(--muted)"
+          }}>
+            {appointments.filter(a => {
+              const d = new Date(a.created_at || a.date)
+              const now = new Date()
+              return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear() && a.status!=="cancelled"
+            }).length} / 150
+          </span>
+        </div>
+
+        {(() => {
+          const monthlyCount = appointments.filter(a => {
+            const d = new Date(a.created_at || a.date)
+            const now = new Date()
+            return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear() && a.status!=="cancelled"
+          }).length
+          const pct = Math.min(100, (monthlyCount/150)*100)
+          const color = pct >= 100 ? "var(--red)" : pct >= 80 ? "var(--gold)" : "var(--green)"
+          return (
+            <>
+              <div style={{height:10,background:"rgba(255,255,255,.06)",borderRadius:5,overflow:"hidden",marginBottom:8}}>
+                <div style={{
+                  height:"100%",borderRadius:5,
+                  background:color,
+                  width:`${pct}%`,
+                  transition:"width .4s ease",
+                  boxShadow:`0 0 10px ${color}`,
+                }}/>
+              </div>
+              <div style={{fontSize:12,color:"var(--muted)"}}>
+                {pct >= 100 ? (
+                  <span style={{color:"var(--red)",fontWeight:700}}>⚠️ Έφτασες το όριο! Αναβάθμισε για να δέχεσαι κρατήσεις.</span>
+                ) : pct >= 80 ? (
+                  <span style={{color:"var(--gold)"}}>⚡ Πλησιάζεις το όριο — {150-monthlyCount} κρατήσεις απομένουν</span>
+                ) : (
+                  <span>{150-monthlyCount} κρατήσεις απομένουν για τον μήνα</span>
+                )}
+              </div>
+            </>
+          )
+        })()}
+
+        {appointments.filter(a => {
+          const d = new Date(a.created_at || a.date)
+          const now = new Date()
+          return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear() && a.status!=="cancelled"
+        }).length >= 120 && (
+          <div style={{
+            marginTop:16,padding:"14px 16px",
+            background:"rgba(239,68,68,.08)",
+            border:"1px solid rgba(239,68,68,.2)",
+            borderRadius:12,
+          }}>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--red)",marginBottom:8}}>
+              🚨 Μην χάνεις ραντεβού!
+            </div>
+            <div style={{fontSize:12,color:"var(--muted2)",marginBottom:12,lineHeight:1.6}}>
+              Με το Solo πλάνο έχεις απεριόριστες κρατήσεις για μόλις €20/μήνα.
+            </div>
+            <button className="btn primary sm" onClick={async()=>{
+              const res = await fetch("/api/create-checkout",{
+                method:"POST",headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({plan:"solo",barbershopId:barbershop.id})
+              })
+              const {url} = await res.json()
+              if (url) window.location.href=url
+            }}>
+              ⚡ Αναβάθμισε σε Solo — €20/μήνα
+            </button>
+          </div>
+        )}
+      </div>
+    )}
+  {/* Υπόλοιπο plan view... */}
+            
                 <div className="plan-card-d">
                   <h3 style={{fontFamily:"Outfit,sans-serif",fontSize:16,marginBottom:16}}>💳 Τρέχον Πλάνο</h3>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>

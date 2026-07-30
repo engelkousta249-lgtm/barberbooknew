@@ -20,7 +20,7 @@ export default function BusinessPage() {
   ]
 
   const plans = [
-    { name: "Freemium", price: "€0", period: "/μήνα", desc: "Για να ξεκινήσεις", features: ["1 Barber", "20 κρατήσεις/μήνα", "Προφίλ καταστήματος", "Email ειδοποιήσεις"], featured: false },
+    { name: "Freemium", price: "€0", period: "/μήνα", desc: "Για να ξεκινήσεις", features: ["1 Barber", "150 κρατήσεις/μήνα", "Προφίλ καταστήματος", "Email ειδοποιήσεις"], featured: false },
     { name: "Solo", price: "€20", period: "/μήνα", desc: "Για επαγγελματίες", features: ["1 Barber", "Απεριόριστες κρατήσεις", "Προφίλ καταστήματος", "Email ειδοποιήσεις"], featured: false },
     { name: "Duo", price: "€24", period: "/μήνα", desc: "Για ζευγάρια barbers", features: ["2 Barbers", "Απεριόριστες κρατήσεις", "Προφίλ καταστήματος", "Email ειδοποιήσεις"], featured: true },
     { name: "Team", price: "€28", period: "/μήνα", desc: "Για μεγάλες ομάδες", features: ["3-10 Barbers", "Απεριόριστες κρατήσεις", "Προφίλ καταστήματος", "Email ειδοποιήσεις"], featured: false },

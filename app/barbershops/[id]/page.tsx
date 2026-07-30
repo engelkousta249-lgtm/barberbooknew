@@ -166,6 +166,28 @@ export default function ShopPage({ params }: { params: Promise<{ id: string }> }
 
   async function handleSubmit() {
     setSubmitting(true)
+    // Check freemium limit
+  const { data: shopData } = await supabase
+    .from("barbershops").select("plan").eq("id", id).single()
+  
+  if (shopData?.plan === "freemium" || !shopData?.plan) {
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+    const { count } = await supabase
+      .from("appointments")
+      .select("*", { count: "exact", head: true })
+      .eq("barbershop_id", id)
+      .neq("status", "cancelled")
+      .gte("created_at", startOfMonth)
+    
+    if ((count || 0) >= 150) {
+      showToast("Το κουρείο έχει φτάσει το μηνιαίο όριο κρατήσεων!")
+      setSubmitting(false)
+      return
+    }
+  }
+
+  // ... υπόλοιπος κώδικας
     const svc = services.find(s => s.id === serviceId)
     const day = days[dayIndex!]
     const barberName = barbersList.find(b => b.id === barberId)?.name || "Οποιονδήποτε"
